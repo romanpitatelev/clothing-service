@@ -1,0 +1,22 @@
+services:
+  postgres:
+    container_name: postgres_clothing
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: clothing_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d clothing_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+    driver: local
+    

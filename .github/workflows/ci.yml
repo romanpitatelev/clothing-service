@@ -1,0 +1,43 @@
+name: CI
+
+on: 
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/chekout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.2"
+      - uses: golang/golangci-lint-action@v4
+        with:
+          version: v1.64.5
+          args: --timeout=5m
+  
+  # tests:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/setup-go@v5
+  #       with:
+  #         go-version: "1.24.2"
+  #     - uses: actions/checkout@v4
+  #     - run: make test
+  
+  build:
+    strategy:
+      matrix:
+        go-version: [^1.24.2]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps: 
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - run: go build ./cmd/clothing-service/main.go
+

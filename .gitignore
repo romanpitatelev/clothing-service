@@ -1,0 +1,6 @@
+/postgres-data
+.idea/
+.env
+*.out
+bin/
+coverage*
