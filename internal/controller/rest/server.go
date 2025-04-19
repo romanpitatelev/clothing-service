@@ -53,6 +53,7 @@ func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server 
 	router.Route("/api", func(r chi.Router) {
 		r.Route("/v1", func(r chi.Router) {
 			r.Use(middleware.Recoverer)
+			r.Use(s.jwtAuth)
 
 			r.Post("/users", s.usersHandler.CreateUser)
 			r.Get("/users/{userId}", s.usersHandler.GetUser)

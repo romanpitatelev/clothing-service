@@ -27,7 +27,26 @@ type User struct {
 	CreatedAt             time.Time  `json:"createdAt"`
 	UpdatedAt             time.Time  `json:"updatedAt"`
 	DeletedAt             *time.Time `json:"deletedAt"`
-	Active                bool       `json:"active"`
+	IsActive              bool       `json:"active"`
+}
+
+type UserUpdate struct {
+	FirstName             string `json:"firstName"`
+	LastName              string `json:"lastName"`
+	NickName              string `json:"nickName"`
+	Email                 string `json:"email"`
+	Country               string `json:"country"`
+	LowerBodyClothingSize int    `json:"lowerBodyClothingSize"`
+	UpperBodyClothingSize int    `json:"upperBodyClothingSize"`
+	FootwearSize          int    `json:"footwearSize"`
+}
+
+type GetUsersRequest struct {
+	Sorting    string `json:"sorting,omitempty"`
+	Descending bool   `json:"descending,omitempty"`
+	Limit      int    `json:"limit,omitempty"`
+	Filter     string `json:"filter,omitempty"`
+	Offset     int    `json:"offset,omitempty"`
 }
 
 var (

@@ -19,7 +19,7 @@ type Config struct {
 
 type EnvSetting struct {
 	AppPort     int    `env:"APP_PORT" env-default:"8081" env-description:"Application port"`
-	PostgresDSN string `env:"POSTGRES_PORT" env-default:"postgresql://postgres:my_pass@localhost:5432/wallets_db" env-description:"PostgreSQL DSN"` //nolint:lll
+	PostgresDSN string `env:"POSTGRES_PORT" env-default:"postgresql://postgres:my_pass@localhost:5432/wallets_db" env-description:"PostgreSQL DSN"`
 }
 
 func findConfigFile() bool {

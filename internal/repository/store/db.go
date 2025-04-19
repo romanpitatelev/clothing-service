@@ -6,6 +6,8 @@ import (
 	"embed"
 	"fmt"
 
+	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
@@ -92,3 +94,10 @@ func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 
 	return nil
 }
+
+func (d *DataStore) Exec(ctx context.Context, query string, arguments ...any) (pgconn.CommandTag, error) {
+}
+
+func (d *DataStore) Query(ctx context.Context, sql string, arguments ...any) (pgx.Rows, error) {}
+
+func (d *DataStore) QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row {}
