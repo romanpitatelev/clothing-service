@@ -30,11 +30,11 @@ type Server struct {
 }
 
 type usersHandler interface {
-	CreateUser(w http.ResponseWriter, t *http.Request)
-	GetUser(w http.ResponseWriter, t *http.Request)
-	UpdateUser(w http.ResponseWriter, t *http.Request)
-	DeleteUser(w http.ResponseWriter, t *http.Request)
-	GetUsers(w http.ResponseWriter, t *http.Request)
+	CreateUser(w http.ResponseWriter, r *http.Request)
+	GetUser(w http.ResponseWriter, r *http.Request)
+	UpdateUser(w http.ResponseWriter, r *http.Request)
+	DeleteUser(w http.ResponseWriter, r *http.Request)
+	GetUsers(w http.ResponseWriter, r *http.Request)
 }
 
 func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server {

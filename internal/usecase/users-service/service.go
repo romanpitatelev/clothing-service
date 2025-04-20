@@ -28,6 +28,6 @@ func (s *Service) CreateUser(ctx context.Context, user entity.User) (entity.User
 func (s *Service) GetUser(ctx context.Context, userID entity.UserID) (entity.User, error) {}
 func (s *Service) UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error) {
 }
-func (s *Service) DeleteUser(ctx context.Context, userID entity.User) error {}
+func (s *Service) DeleteUser(ctx context.Context, userID entity.UserID) error {}
 func (s *Service) GetUsers(ctx context.Context, request entity.GetUsersRequest) ([]entity.User, error) {
 }
