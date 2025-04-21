@@ -16,7 +16,7 @@ type usersService interface {
 	GetUser(ctx context.Context, userID entity.UserID) (entity.User, error)
 	UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error)
 	DeleteUser(ctx context.Context, userID entity.UserID) error
-	GetUsers(ctx context.Context, request entity.GetUsersRequest) ([]entity.User, error)
+	GetUsers(ctx context.Context, request entity.GetRequestParams) ([]entity.User, error)
 }
 
 type Handler struct {
@@ -101,7 +101,15 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	common.OkResponse(w, http.StatusNoContent, "user deleted successfully")
-
 }
 
-func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {}
+func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
+	request := common.ParseGetRequest(r)
+	ctx := r.Context()
+	users, err := h.usersService.GetUsers(ctx, request)
+	if err != nil {
+		common.ErrorResponse(w, "error getting users", err)
+	}
+
+	common.OkResponse(w, http.StatusOK, users)
+}

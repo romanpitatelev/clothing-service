@@ -6,7 +6,7 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
@@ -96,8 +96,42 @@ func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 }
 
 func (d *DataStore) Exec(ctx context.Context, query string, arguments ...any) (pgconn.CommandTag, error) {
+	cmdTag, err := d.pool.Exec(ctx, query, arguments...)
+	if err != nil {
+		return pgconn.CommandTag{}, fmt.Errorf("error executing query %s: %w", query, err)
+	}
+
+	return cmdTag, nil
 }
 
-func (d *DataStore) Query(ctx context.Context, sql string, arguments ...any) (pgx.Rows, error) {}
+func (d *DataStore) Query(ctx context.Context, sql string, arguments ...any) (pgx.Rows, error) {
+	res, err := d.pool.Query(ctx, sql, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query %s: %w", sql, err)
+	}
 
-func (d *DataStore) QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row {}
+	return res, nil
+}
+
+func (d *DataStore) QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row {
+	return d.pool.QueryRow(ctx, sql, arguments...)
+}
+
+type Transaction interface {
+	Exec(ctx context.Context, query string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, arguments ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row
+}
+
+type txtCtxKey string
+
+var ctxKey txtCtxKey = "tx"
+
+func (d *DataStore) GetTXFromContext(ctx context.Context) Transaction {
+	tx, ok := ctx.Value(ctxKey).(pgx.Tx)
+	if !ok {
+		return d.pool
+	}
+
+	return tx
+}
