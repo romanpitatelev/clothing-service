@@ -29,10 +29,10 @@ type User struct {
 }
 
 type UserUpdate struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	NickName  string `json:"nickName"`
-	Email     Email  `json:"email"`
+	FirstName *string `json:"firstName"`
+	LastName  *string `json:"lastName"`
+	NickName  *string `json:"nickName"`
+	Email     *Email  `json:"email"`
 }
 
 type GetRequestParams struct {

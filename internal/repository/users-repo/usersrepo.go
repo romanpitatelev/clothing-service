@@ -147,10 +147,11 @@ WHERE TRUE
 
 func (r *Repo) GetUsers(ctx context.Context, request entity.GetRequestParams) ([]entity.User, error) {
 	var (
-		users []entity.User
-		rows  pgx.Rows
-		err   error
+		rows pgx.Rows
+		err  error
 	)
+
+	users := make([]entity.User, 0)
 
 	query, args := r.getUsersQuery(request)
 
@@ -180,10 +181,6 @@ func (r *Repo) GetUsers(ctx context.Context, request entity.GetRequestParams) ([
 
 		users = append(users, user)
 
-		if err = rows.Err(); err != nil {
-			return nil, fmt.Errorf("rows.Err(): %w", err)
-		}
-
 		if len(users) == 0 {
 			return []entity.User{}, nil
 		}
@@ -191,10 +188,6 @@ func (r *Repo) GetUsers(ctx context.Context, request entity.GetRequestParams) ([
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows.Err(): %w", err)
-	}
-
-	if len(users) == 0 {
-		return []entity.User{}, nil
 	}
 
 	return users, nil
@@ -218,13 +211,13 @@ func (r *Repo) getUsersQuery(request entity.GetRequestParams) (string, []any) {
 
 	if request.Filter != "" {
 		args = append(args, "%"+request.Filter+"%")
-		sb.WriteString(fmt.Sprintf(` AND concat_ws('', id, first_name, last_name, nick_name, gender, age, email, created_at, updated_at)
+		sb.WriteString(fmt.Sprintf(` AND concat_ws('', first_name, last_name, nick_name, gender, email)
 ILIKE $%d`, len(args)))
 	}
 
 	sorting, ok := validSortParams[request.Sorting]
 	if !ok {
-		sorting = "last_name"
+		sorting = "created_at"
 	}
 
 	sb.WriteString(" ORDER BY " + sorting)
