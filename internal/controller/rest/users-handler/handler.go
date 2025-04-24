@@ -16,7 +16,6 @@ type usersService interface {
 	GetUser(ctx context.Context, userID entity.UserID) (entity.User, error)
 	UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error)
 	DeleteUser(ctx context.Context, userID entity.UserID) error
-	GetUsers(ctx context.Context, request entity.GetRequestParams) ([]entity.User, error)
 }
 
 type Handler struct {
@@ -29,7 +28,26 @@ func New(usersService usersService) *Handler {
 	}
 }
 
-func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {}
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var user entity.User
+
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		common.ErrorResponse(w, "error decoding request body", err)
+
+		return
+	}
+
+	ctx := r.Context()
+
+	createdUser, err := h.usersService.CreateUser(ctx, user)
+	if err != nil {
+		common.ErrorResponse(w, "error creating user", err)
+
+		return
+	}
+
+	common.OkResponse(w, http.StatusOK, createdUser)
+}
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	userIDStr := chi.URLParam(r, "userId")
@@ -42,6 +60,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+
 	userInfo, err := h.usersService.GetUser(ctx, entity.UserID(userID))
 	if err != nil {
 		common.ErrorResponse(w, "error getting user", err)
@@ -101,15 +120,4 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	common.OkResponse(w, http.StatusNoContent, "user deleted successfully")
-}
-
-func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
-	request := common.ParseGetRequest(r)
-	ctx := r.Context()
-	users, err := h.usersService.GetUsers(ctx, request)
-	if err != nil {
-		common.ErrorResponse(w, "error getting users", err)
-	}
-
-	common.OkResponse(w, http.StatusOK, users)
 }

@@ -45,6 +45,9 @@ func New(ctx context.Context, cfg Config) (*DataStore, error) {
 
 func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 	conn, err := sql.Open("pgx", d.dsn)
+
+	log.Debug().Msgf("d.dsn: %s", d.dsn)
+
 	if err != nil {
 		return fmt.Errorf("failed to open sql: %w", err)
 	}
@@ -123,6 +126,7 @@ type Transaction interface {
 	QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row
 }
 
+//nolint:gochecknoglobals
 type txtCtxKey string
 
 var ctxKey txtCtxKey = "tx"

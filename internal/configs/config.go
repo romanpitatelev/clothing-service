@@ -8,6 +8,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ilyakaznacheev/cleanenv"
+	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
 	"github.com/rs/zerolog/log"
 )
 
@@ -18,8 +19,10 @@ type Config struct {
 }
 
 type EnvSetting struct {
-	AppPort     int    `env:"APP_PORT" env-default:"8081" env-description:"Application port"`
-	PostgresDSN string `env:"POSTGRES_PORT" env-default:"postgresql://postgres:my_pass@localhost:5432/wallets_db" env-description:"PostgreSQL DSN"`
+	AppPort       int    `env:"APP_PORT" env-default:"8081" env-description:"Application port"`
+	PostgresDSN   string `env:"POSTGRES_PORT" env-default:"postgresql://postgres:my_pass@localhost:5432/clothing_db" env-description:"PostgreSQL DSN"`
+	SMSToken      string `env:"SMS_AUTH_TOKEN"  env-default:"QWxhZGRpbjpvcGVuIHNlc2FtZQ=="`
+	SMSSenderName string `env:"SMS_SENDER_NAME" env-default:"sms_promo"`
 }
 
 func findConfigFile() bool {
@@ -53,7 +56,7 @@ func New() *Config {
 		if err := cleanenv.ReadConfig(envFileName, envSetting); err != nil {
 			log.Panic().Err(err).Msg("failed to read env config")
 		}
-	} else {
+	} else if err := cleanenv.ReadEnv(envSetting); err != nil {
 		log.Panic().Err(err).Msg("error reading env config")
 	}
 
@@ -86,4 +89,12 @@ func (c *Config) GetAppPort() int {
 
 func (c *Config) GetPostgresDSN() string {
 	return c.env.PostgresDSN
+}
+
+func (c *Config) GetSMSConfig() smsregistration.Config {
+	return smsregistration.Config{
+		BaseURL:    "https://direct.i-dgtl.ru",
+		AuthToken:  c.env.SMSToken,
+		SenderName: c.env.SMSSenderName,
+	}
 }

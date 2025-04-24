@@ -11,6 +11,7 @@ import (
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
+	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
@@ -32,9 +33,12 @@ func Run(cfg *configs.Config) error {
 	log.Info().Msg("successful migration")
 
 	usersRepo := usersrepo.New(db)
+	smsService := smsregistration.New(cfg.GetSMSConfig())
+	smsService.StartCleanup()
 
 	usersService := usersservice.New(
 		usersRepo,
+		smsService,
 	)
 
 	usersHandler := usershandler.New(usersService)

@@ -34,7 +34,6 @@ type usersHandler interface {
 	GetUser(w http.ResponseWriter, r *http.Request)
 	UpdateUser(w http.ResponseWriter, r *http.Request)
 	DeleteUser(w http.ResponseWriter, r *http.Request)
-	GetUsers(w http.ResponseWriter, r *http.Request)
 }
 
 func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server {
@@ -59,7 +58,6 @@ func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server 
 			r.Get("/users/{userId}", s.usersHandler.GetUser)
 			r.Patch("users/{userId}", s.usersHandler.UpdateUser)
 			r.Delete("users/{userId}", s.usersHandler.DeleteUser)
-			r.Get("/users", s.usersHandler.GetUsers)
 		})
 	})
 
