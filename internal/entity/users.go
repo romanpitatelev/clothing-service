@@ -22,7 +22,7 @@ type (
 )
 
 type User struct {
-	UserID     UserID     `json:"id"`
+	UserID     UserID     `json:"id" db:"id"`
 	FirstName  string     `json:"firstName"`
 	LastName   string     `json:"lastName"`
 	NickName   string     `json:"nickName"`
@@ -59,6 +59,7 @@ var (
 	ErrInvalidSigningMethod = errors.New("invalid signing method")
 	ErrUserNotFound         = errors.New("user not found")
 	ErrInvalidPhone         = errors.New("invalid phone number")
+	ErrInvalidCode          = errors.New("invalid code")
 )
 
 type Claims struct {

@@ -14,9 +14,9 @@ import (
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
+	smsregistration2 "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
-	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
@@ -43,7 +43,7 @@ type IntegrationTestSuite struct {
 	usersservice *usersservice.Service
 	usershandler *usershandler.Handler
 	server       *rest.Server
-	smsRepo      *smsregistration.SMSService
+	smsRepo      *smsregistration2.SMSService
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
@@ -66,7 +66,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 
 	s.usersrepo = usersrepo.New(s.db)
 
-	s.smsRepo = smsregistration.New(smsregistration.Config{
+	s.smsRepo = smsregistration2.New(smsregistration2.Config{
 		BaseURL:              fmt.Sprintf("%s/api/v1/message", baseURL),
 		AuthToken:            authToken,
 		SenderName:           senderName,

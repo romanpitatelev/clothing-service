@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/romanpitatelev/clothing-service/internal/entity"
-	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
+	"github.com/romanpitatelev/clothing-service/internal/repository/sms-registration"
 )
 
 type usersStore interface {
@@ -15,19 +15,19 @@ type usersStore interface {
 	GetUser(ctx context.Context, userID entity.UserID) (entity.User, error)
 	UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error)
 	DeleteUser(ctx context.Context, userID entity.UserID) error
+	CheckVerificationCode(ctx context.Context, check entity.VerificationCheck) (*smsregistration.VerificationResult, error)
 }
 
-type smsRegistration interface {
-	SendVerificationCode(ctx context.Context, phoneNumber string) (*smsregistration.VerificationResponse, error)
-	CheckVerificationCode(ctx context.Context, check smsregistration.VerificationCheck) (*smsregistration.VerificationResult, error)
+type smsSender interface {
+	SendVerificationCode(ctx context.Context, phoneNumber string, code int) (*smsregistration.VerificationResponse, error)
 }
 
 type Service struct {
 	usersStore      usersStore
-	smsRegistration smsRegistration
+	smsRegistration smsSender
 }
 
-func New(usersStore usersStore, smssmsRegistration smsRegistration) *Service {
+func New(usersStore usersStore, smssmsRegistration smsSender) *Service {
 	return &Service{
 		usersStore:      usersStore,
 		smsRegistration: smssmsRegistration,
@@ -35,7 +35,15 @@ func New(usersStore usersStore, smssmsRegistration smsRegistration) *Service {
 }
 
 func (s *Service) CreateUser(ctx context.Context, user entity.User) (entity.User, error) {
-	verificationResp, err := s.smsRegistration.SendVerificationCode(ctx, user.Phone)
+	//TODO create unverified users in separate table
+	unverifiedUser, err := s.usersStore.CreateUnverifiedUser(ctx, validatedUser, code)
+	if err != nil {
+		return entity.User{}, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	//TODO split in to separate calls to api
+	code := s.generateCode()
+	verificationResp, err := s.smsRegistration.SendVerificationCode(ctx, user.Phone, code)
 	if err != nil {
 		return entity.User{}, fmt.Errorf("failed to send verification code: %w", err)
 	}
@@ -43,13 +51,6 @@ func (s *Service) CreateUser(ctx context.Context, user entity.User) (entity.User
 	validatedUser, err := user.Validate()
 	if err != nil {
 		return entity.User{}, fmt.Errorf("user validation failed: %w", err)
-	}
-
-	validatedUser.CreatedAt = time.Now()
-
-	unverifiedUser, err := s.usersStore.CreateUnverifiedUser(ctx, validatedUser)
-	if err != nil {
-		return entity.User{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	result, err := s.smsRegistration.CheckVerificationCode(ctx, smsregistration.VerificationCheck{
@@ -61,7 +62,7 @@ func (s *Service) CreateUser(ctx context.Context, user entity.User) (entity.User
 	}
 
 	if !result.Success {
-		return entity.User{}, fmt.Errorf("invalid verification code: %w", err)
+		return entity.User{}, entity.ErrInvalidCode
 	}
 
 	verifiedUser, err := s.usersStore.VerifyUser(ctx, unverifiedUser.UserID)

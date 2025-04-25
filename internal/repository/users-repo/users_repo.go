@@ -50,6 +50,8 @@ RETURNING id, first_name, last_name, nick_name, gender, age, email, phone, creat
 
 	var unverifiedUser entity.User
 
+	//TODO try using pgx.RowToStructByName()
+
 	err := row.Scan(
 		&unverifiedUser.UserID,
 		&unverifiedUser.FirstName,

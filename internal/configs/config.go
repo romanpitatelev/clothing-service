@@ -9,7 +9,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ilyakaznacheev/cleanenv"
-	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
+	"github.com/romanpitatelev/clothing-service/internal/repository/sms-registration"
 	"github.com/rs/zerolog/log"
 )
 

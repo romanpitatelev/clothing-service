@@ -46,7 +46,6 @@ func New(ctx context.Context, cfg Config) (*DataStore, error) {
 
 func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 	conn, err := sql.Open("pgx", d.dsn)
-
 	if err != nil {
 		return fmt.Errorf("failed to open sql: %w", err)
 	}
