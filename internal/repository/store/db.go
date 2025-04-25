@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
 )
@@ -45,8 +46,6 @@ func New(ctx context.Context, cfg Config) (*DataStore, error) {
 
 func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 	conn, err := sql.Open("pgx", d.dsn)
-
-	log.Debug().Msgf("d.dsn: %s", d.dsn)
 
 	if err != nil {
 		return fmt.Errorf("failed to open sql: %w", err)
@@ -93,6 +92,16 @@ func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 	_, err = migrate.Exec(conn, "postgres", asset, direction)
 	if err != nil {
 		return fmt.Errorf("failed to count the number of migrations: %w", err)
+	}
+
+	return nil
+}
+
+func (d *DataStore) Truncate(ctx context.Context, tables ...string) error {
+	for _, table := range tables {
+		if _, err := d.pool.Exec(ctx, `DELETE FROM `+table); err != nil {
+			return fmt.Errorf("error truncating %s: %w", table, err)
+		}
 	}
 
 	return nil

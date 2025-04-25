@@ -57,7 +57,7 @@ func (s *SMSService) cleanupExpiredCodes() {
 
 func (s *SMSService) SendVerificationCode(ctx context.Context, phone string) (*VerificationResponse, error) {
 	code := s.generateCode()
-	expiresAt := time.Now().Add(s.cfg.CodeValidity)
+	expiresAt := time.Now().Add(s.cfg.CodeValidityDuration)
 
 	s.mu.Lock()
 	s.verification[phone] = verificationData{

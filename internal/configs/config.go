@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ilyakaznacheev/cleanenv"
@@ -12,7 +13,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const envFileName = ".env"
+const (
+	envFileName          = ".env"
+	codeLength           = 4
+	cleanupPeriod        = 5 * time.Minute
+	codeValidityDuration = 3 * time.Minute
+)
 
 type Config struct {
 	env *EnvSetting
@@ -93,8 +99,11 @@ func (c *Config) GetPostgresDSN() string {
 
 func (c *Config) GetSMSConfig() smsregistration.Config {
 	return smsregistration.Config{
-		BaseURL:    "https://direct.i-dgtl.ru",
-		AuthToken:  c.env.SMSToken,
-		SenderName: c.env.SMSSenderName,
+		BaseURL:              "https://direct.i-dgtl.ru",
+		AuthToken:            c.env.SMSToken,
+		SenderName:           c.env.SMSSenderName,
+		CodeLength:           codeLength,
+		CodeValidityDuration: codeValidityDuration,
+		CleanupPeriod:        cleanupPeriod,
 	}
 }

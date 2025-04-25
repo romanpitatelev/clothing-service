@@ -56,8 +56,8 @@ func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server 
 
 			r.Post("/users", s.usersHandler.CreateUser)
 			r.Get("/users/{userId}", s.usersHandler.GetUser)
-			r.Patch("users/{userId}", s.usersHandler.UpdateUser)
-			r.Delete("users/{userId}", s.usersHandler.DeleteUser)
+			r.Patch("/users/{userId}", s.usersHandler.UpdateUser)
+			r.Delete("/users/{userId}", s.usersHandler.DeleteUser)
 		})
 	})
 
