@@ -2,42 +2,27 @@ package configs
 
 import (
 	"fmt"
-	"os"
-	"reflect"
-	"regexp"
-	"time"
-
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ilyakaznacheev/cleanenv"
-	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	envFileName          = ".env"
-	codeLength           = 4
-	cleanupPeriod        = 5 * time.Minute
-	codeValidityDuration = 3 * time.Minute
+	"os"
 )
 
 type Config struct {
-	env *EnvSetting
-}
+	AppPort int `env:"APP_PORT" env-default:"8081" env-description:"Application port"`
 
-type EnvSetting struct {
-	AppPort       int    `env:"APP_PORT" env-default:"8081" env-description:"Application port"`
-	PostgresDSN   string `env:"POSTGRES_PORT" env-default:"postgresql://postgres:my_pass@localhost:5432/clothing_db" env-description:"PostgreSQL DSN"`
+	PostgresDSN string `env:"POSTGRES_PORT" env-default:"postgresql://postgres:my_pass@localhost:5432/clothing_db" env-description:"PostgreSQL DSN"`
+
 	SMSToken      string `env:"SMS_AUTH_TOKEN"  env-default:"QWxhZGRpbjpvcGVuIHNlc2FtZQ=="`
 	SMSSenderName string `env:"SMS_SENDER_NAME" env-default:"sms_promo"`
+
+	S3Address string `env:"S3_ADDRESS" env-default:"http://localhost:9000"`
+	S3Bucket  string `env:"S3_BUCKET" env-default:"test.bucket"`
+	S3Access  string `env:"S3_ACCESS_KEY" env-default:"access"`
+	S3Secret  string `env:"S3_SECRET_KEY" env-default:"truesecret"`
+	S3Region  string `env:"S3_REGION" env-default:"us-east-1"`
 }
 
-func findConfigFile() bool {
-	_, err := os.Stat(envFileName)
-
-	return err == nil
-}
-
-func (e *EnvSetting) GetHelpString() (string, error) {
+func (e *Config) getHelpString() (string, error) {
 	baseHeader := "Environment variables that can be set with env: "
 
 	helpString, err := cleanenv.GetDescription(e, &baseHeader)
@@ -49,61 +34,22 @@ func (e *EnvSetting) GetHelpString() (string, error) {
 }
 
 func New() *Config {
-	envSetting := &EnvSetting{}
+	cfg := &Config{}
 
-	helpString, err := envSetting.GetHelpString()
+	helpString, err := cfg.getHelpString()
 	if err != nil {
 		log.Panic().Err(err).Msg("failed to get help string")
 	}
 
 	log.Info().Msg(helpString)
 
-	if findConfigFile() {
-		if err := cleanenv.ReadConfig(envFileName, envSetting); err != nil {
-			log.Panic().Err(err).Msg("failed to read env config")
-		}
-	} else if err := cleanenv.ReadEnv(envSetting); err != nil {
-		log.Panic().Err(err).Msg("error reading env config")
+	if err := cleanenv.ReadEnv(cfg); err != nil {
+		log.Panic().Err(err).Msg("failed to read config from envs")
 	}
 
-	return &Config{env: envSetting}
-}
-
-func (c *Config) PrintDebug() {
-	envReflect := reflect.Indirect(reflect.ValueOf(c.env))
-	envReflectType := envReflect.Type()
-
-	exp := regexp.MustCompile("([Tt]oken[Pp]assword)")
-
-	for i := range envReflect.NumField() {
-		key := envReflectType.Field(i).Name
-
-		if exp.MatchString(key) {
-			val, _ := envReflect.Field(i).Interface().(string)
-			log.Debug().Msgf("%s: len %d", key, len(val))
-
-			continue
-		}
-
-		log.Debug().Msgf("%s: %v", key, spew.Sprintf("%#v", envReflect.Field(i).Interface()))
+	if err = cleanenv.ReadConfig(".env", cfg); err != nil && !os.IsNotExist(err) {
+		log.Panic().Err(err).Msg("failed to read config from .env")
 	}
-}
 
-func (c *Config) GetAppPort() int {
-	return c.env.AppPort
-}
-
-func (c *Config) GetPostgresDSN() string {
-	return c.env.PostgresDSN
-}
-
-func (c *Config) GetSMSConfig() smsregistration.Config {
-	return smsregistration.Config{
-		BaseURL:              "https://direct.i-dgtl.ru",
-		AuthToken:            c.env.SMSToken,
-		SenderName:           c.env.SMSSenderName,
-		CodeLength:           codeLength,
-		CodeValidityDuration: codeValidityDuration,
-		CleanupPeriod:        cleanupPeriod,
-	}
+	return cfg
 }

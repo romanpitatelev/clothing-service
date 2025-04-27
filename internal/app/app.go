@@ -21,7 +21,7 @@ func Run(cfg *configs.Config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	db, err := store.New(ctx, store.Config{Dsn: cfg.GetPostgresDSN()})
+	db, err := store.New(ctx, store.Config{Dsn: cfg.PostgresDSN})
 	if err != nil {
 		log.Panic().Err(err).Msg("failed to connect to database")
 	}
@@ -44,7 +44,7 @@ func Run(cfg *configs.Config) error {
 	usersHandler := usershandler.New(usersService)
 
 	server := rest.New(
-		rest.Config{Port: cfg.GetAppPort()},
+		rest.Config{Port: cfg.AppPort},
 		usersHandler,
 		rest.GetPublicKey(),
 	)
