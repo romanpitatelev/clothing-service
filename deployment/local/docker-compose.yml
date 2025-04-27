@@ -12,11 +12,25 @@ services:
       POSTGRES_DB: clothing_db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d clothing_db"]
-      interval: 5s
-      timeout: 5s
+      interval: 1s
+      timeout: 1s
       retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: access
+      MINIO_ROOT_PASSWORD: truesecret
+      MINIO_REGION: us-east-1
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
 
 volumes:
   postgres-data:
     driver: local
-    
+  minio_data:

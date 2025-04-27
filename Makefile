@@ -4,10 +4,10 @@ run:
 	./bin/main
 
 up: 
-	docker compose up -d
+	docker compose -f deployment/local/docker-compose.yml up -d
 
 down:
-	docker compose down --remove-orphans
+	docker compose -f deployment/local/docker-compose.yml down --remove-orphans
 
 tidy:
 	go mod tidy
