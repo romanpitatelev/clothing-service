@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -22,18 +23,20 @@ type (
 )
 
 type User struct {
-	UserID     UserID     `json:"id"`
-	FirstName  string     `json:"firstName"`
-	LastName   string     `json:"lastName"`
-	NickName   string     `json:"nickName"`
-	Gender     string     `json:"gender"`
-	Age        int        `json:"age"`
-	Email      string     `json:"email"`
-	Phone      string     `json:"phone"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	IsVerified bool       `json:"isVerified"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
-	DeletedAt  *time.Time `json:"deletedAt"`
+	UserID       UserID     `json:"id"`
+	FirstName    *string    `json:"firstName"`
+	LastName     *string    `json:"lastName"`
+	NickName     string     `json:"nickName"`
+	Gender       *string    `json:"gender"`
+	Age          *int       `json:"age"`
+	Email        *string    `json:"email"`
+	Phone        *string    `json:"phone"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	IsVerified   bool       `json:"isVerified"`
+	UpdatedAt    *time.Time `json:"updatedAt"`
+	DeletedAt    *time.Time `json:"deletedAt"`
+	OTP          string     `json:"otp"`
+	OTPExpiresAt time.Time  `json:"otpExpiresAt"`
 }
 
 type UserUpdate struct {
@@ -44,34 +47,34 @@ type UserUpdate struct {
 	Phone     *string `json:"phone"`
 }
 
-type ClothingItem struct{}
-
-type GetRequestParams struct {
-	Sorting    string `json:"sorting,omitempty"`
-	Descending bool   `json:"descending,omitempty"`
-	Limit      int    `json:"limit,omitempty"`
-	Filter     string `json:"filter,omitempty"`
-	Offset     int    `json:"offset,omitempty"`
-}
-
-var (
-	ErrInvalidToken         = errors.New("invalid token")
-	ErrInvalidSigningMethod = errors.New("invalid signing method")
-	ErrUserNotFound         = errors.New("user not found")
-	ErrInvalidPhone         = errors.New("invalid phone number")
-)
-
 type Claims struct {
 	UserID UserID `json:"userId"`
 	Email  string `json:"email"`
-	Role   string `json:"role"`
+	Phone  string `json:"phone"`
 	jwt.RegisteredClaims
 }
+
+var (
+	ErrInvalidSigningMethod = errors.New("invalid signing method")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrInvalidPhone         = errors.New("invalid phone number")
+	ErrAccessTokenExpired   = errors.New("expired access token")
+	ErrUserNotVerified      = errors.New("user not verified")
+	ErrInvalidUUIDFormat    = errors.New("invalid uuid format")
+	ErrOTPExpired           = errors.New("otp has expired")
+	ErrInvalidOTP           = errors.New("invalid otp")
+)
 
 type UserInfo struct {
 	UserID UserID `json:"userId"`
 	Email  string `json:"email"`
 	Role   string `json:"role"`
+}
+
+type Tokens struct {
+	AccessToken  string    `json:"accessToken"`
+	RefreshToken string    `json:"refreshToken"`
+	Timeout      time.Time `json:"timeout"`
 }
 
 func validateEmail(email string) error {
@@ -84,10 +87,7 @@ func validateEmail(email string) error {
 }
 
 func validatePhone(phone string) (string, error) {
-	re, err := regexp.Compile(`\D`)
-	if err != nil {
-		return "", fmt.Errorf("failed to compile regexp: %w", err)
-	}
+	re := regexp.MustCompile(`\D`)
 
 	digits := re.ReplaceAllString(phone, "")
 
@@ -123,16 +123,18 @@ func containsOnlyDigits(s string) bool {
 }
 
 func (u *User) Validate() (User, error) {
-	formattedPhone, err := validatePhone(u.Phone)
+	formattedPhone, err := validatePhone(*u.Phone)
 	if err != nil {
 		return User{}, fmt.Errorf("phone validation error: %w", err)
 	}
 
-	u.Phone = formattedPhone
+	*u.Phone = formattedPhone
 
-	err = validateEmail(u.Email)
-	if err != nil {
-		return User{}, fmt.Errorf("email validation error: %w", err)
+	if u.Email != nil {
+		err := validateEmail(*u.Email)
+		if err != nil {
+			return User{}, fmt.Errorf("email validation error: %w", err)
+		}
 	}
 
 	return *u, nil
@@ -156,4 +158,33 @@ func (uu *UserUpdate) Validate() (UserUpdate, error) {
 	}
 
 	return *uu, nil
+}
+
+func unmarshalUUID(id *uuid.UUID, data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("unmarshalling error: %w", err)
+	}
+
+	parsed, err := uuid.Parse(s)
+	if err != nil {
+		return ErrInvalidUUIDFormat
+	}
+
+	*id = parsed
+
+	return nil
+}
+
+func (u *UserID) UnmarshalText(data []byte) error {
+	return unmarshalUUID((*uuid.UUID)(u), data)
+}
+
+func (u UserID) MarshalText() ([]byte, error) {
+	data, err := json.Marshal(uuid.UUID(u).String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal UUID: %w", err)
+	}
+
+	return data, nil
 }

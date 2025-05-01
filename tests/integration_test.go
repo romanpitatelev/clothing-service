@@ -16,23 +16,45 @@ import (
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
-	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
+	tokenservice "github.com/romanpitatelev/clothing-service/internal/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/stretchr/testify/suite"
 )
 
+type testSMSService struct {
+	sendOTPChan chan otpRequest
+}
+
+type otpRequest struct {
+	phone string
+	otp   string
+}
+
+func newTestSMSService() *testSMSService {
+	return &testSMSService{
+		sendOTPChan: make(chan otpRequest),
+	}
+}
+
+func (s *testSMSService) SendOTP(ctx context.Context, phone string, otp string) error {
+	select {
+	case s.sendOTPChan <- otpRequest{phone: phone, otp: otp}:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("sms service context canceld: %w", ctx.Err())
+	}
+}
+
 const (
-	pgDSN                = "postgresql://postgres:my_pass@localhost:5432/clothing_db"
-	port                 = 5003
-	userPath             = "api/v1/users"
-	baseURL              = "https://direct.i-dgtl.ru"
-	authToken            = "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
-	senderName           = "sms_promo"
-	codeLength           = 4
-	codeValidityDuration = 3 * time.Minute
-	cleanupPeriod        = 5 * time.Minute
+	pgDSN               = "postgresql://postgres:my_pass@localhost:5432/clothing_db"
+	port                = 5003
+	userPath            = "/api/v1/users"
+	email               = "rpitatelev@gmail.com"
+	sender              = "clothing-service"
+	codeLength          = 4
+	accessTokenDuration = 3 * time.Minute
 )
 
 type IntegrationTestSuite struct {
@@ -40,10 +62,11 @@ type IntegrationTestSuite struct {
 	cancelFunc   context.CancelFunc
 	db           *store.DataStore
 	usersrepo    *usersrepo.Repo
+	tokenRepo    *tokenservice.Generator
 	usersservice *usersservice.Service
 	usershandler *usershandler.Handler
 	server       *rest.Server
-	smsRepo      *smsregistration.SMSService
+	smsService   *testSMSService
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
@@ -64,26 +87,36 @@ func (s *IntegrationTestSuite) SetupSuite() {
 
 	log.Info().Msg("migrations are ready")
 
+	privateKey, err := readPrivateKey()
+	s.Require().NoError(err)
+
+	publicKey := &privateKey.PublicKey
+	s.tokenRepo = tokenservice.New(privateKey, publicKey)
+
 	s.usersrepo = usersrepo.New(s.db)
 
-	s.smsRepo = smsregistration.New(smsregistration.Config{
-		BaseURL:              fmt.Sprintf("%s/api/v1/message", baseURL),
-		AuthToken:            authToken,
-		SenderName:           senderName,
-		CodeLength:           codeLength,
-		CodeValidityDuration: codeValidityDuration,
-		CleanupPeriod:        cleanupPeriod,
-	})
-	s.Require().NoError(err)
+	s.smsService = newTestSMSService()
 
 	log.Info().Msg("sms client is ready")
 
-	s.usersservice = usersservice.New(s.usersrepo, s.smsRepo)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case req := <-s.smsService.sendOTPChan:
+				log.Info().Msgf("received otp request - phone: %s, otp: %s", req.phone, req.otp)
+			}
+		}
+	}()
+
+	s.usersservice = usersservice.New(s.usersrepo, s.smsService, s.tokenRepo)
 
 	s.usershandler = usershandler.New(s.usersservice)
 
 	s.server = rest.New(rest.Config{Port: port}, s.usershandler, rest.GetPublicKey())
 
+	//nolint:testifylint
 	go func() {
 		err = s.server.Run(ctx)
 		s.Require().NoError(err)
@@ -124,7 +157,7 @@ func (s *IntegrationTestSuite) sendRequest(method, path string, status int, enti
 	client := http.Client{}
 
 	response, err := client.Do(request)
-	s.Require().NoError(err, "failed mto execute request")
+	s.Require().NoError(err, "failed to execute request")
 
 	s.Require().NotNil(response, "response object is nil")
 

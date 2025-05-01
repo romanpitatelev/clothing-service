@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rsa"
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,13 +11,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
-	"github.com/rs/zerolog/log"
 )
 
 const (
-	tokenLength    = 3
-	authFailedText = "authorization failed"
-	tokenDuration  = 24 * time.Hour
+	tokenLength   = 3
+	tokenDuration = 24 * time.Hour
 )
 
 //go:embed keys/public_key.pem
@@ -28,7 +25,7 @@ func (s *Server) jwtAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		if header == "" {
-			s.errorUnauthorizedResponse(w, entity.ErrInvalidToken)
+			w.WriteHeader(http.StatusUnauthorized)
 
 			return
 		}
@@ -36,14 +33,14 @@ func (s *Server) jwtAuth(next http.Handler) http.Handler {
 		headerParts := strings.Split(header, " ")
 
 		if headerParts[0] != "Bearer" {
-			s.errorUnauthorizedResponse(w, entity.ErrInvalidToken)
+			w.WriteHeader(http.StatusUnauthorized)
 
 			return
 		}
 
 		encodedToken := strings.Split(headerParts[1], ".")
 		if len(encodedToken) != tokenLength {
-			s.errorUnauthorizedResponse(w, entity.ErrInvalidToken)
+			w.WriteHeader(http.StatusUnauthorized)
 
 			return
 		}
@@ -56,20 +53,20 @@ func (s *Server) jwtAuth(next http.Handler) http.Handler {
 			return s.key, nil
 		})
 		if err != nil {
-			s.errorUnauthorizedResponse(w, entity.ErrInvalidToken)
+			w.WriteHeader(http.StatusUnauthorized)
 
 			return
 		}
 
 		claims, ok := token.Claims.(*entity.Claims)
 		if !ok || !token.Valid {
-			s.errorUnauthorizedResponse(w, entity.ErrInvalidToken)
+			w.WriteHeader(http.StatusUnauthorized)
 
 			return
 		}
 
 		if claims.ExpiresAt.Before(time.Now()) {
-			s.errorUnauthorizedResponse(w, entity.ErrInvalidToken)
+			w.WriteHeader(http.StatusUnauthorized)
 
 			return
 		}
@@ -77,28 +74,13 @@ func (s *Server) jwtAuth(next http.Handler) http.Handler {
 		userInfo := entity.UserInfo{
 			UserID: claims.UserID,
 			Email:  claims.Email,
-			Role:   claims.Role,
+			Role:   claims.Phone,
 		}
 
 		r = r.WithContext(context.WithValue(r.Context(), entity.UserInfo{}, userInfo))
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (s *Server) errorUnauthorizedResponse(w http.ResponseWriter, err error) {
-	errResp := fmt.Errorf("%s: %w", authFailedText, err).Error()
-
-	response, err := json.Marshal(errResp)
-	if err != nil {
-		log.Warn().Err(err).Msg("error during response marshalling")
-	}
-
-	w.WriteHeader(http.StatusUnauthorized)
-
-	if _, err = w.Write(response); err != nil {
-		log.Warn().Err(err).Msg("error during response writing")
-	}
 }
 
 func NewClaims() *entity.Claims {

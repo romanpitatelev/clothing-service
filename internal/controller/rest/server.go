@@ -31,6 +31,9 @@ type Server struct {
 
 type usersHandler interface {
 	CreateUser(w http.ResponseWriter, r *http.Request)
+	ValidateUser(w http.ResponseWriter, r *http.Request)
+	LoginUser(w http.ResponseWriter, r *http.Request)
+	RefreshToken(w http.ResponseWriter, r *http.Request)
 	GetUser(w http.ResponseWriter, r *http.Request)
 	UpdateUser(w http.ResponseWriter, r *http.Request)
 	DeleteUser(w http.ResponseWriter, r *http.Request)
@@ -52,12 +55,18 @@ func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server 
 	router.Route("/api", func(r chi.Router) {
 		r.Route("/v1", func(r chi.Router) {
 			r.Use(middleware.Recoverer)
-			r.Use(s.jwtAuth)
 
-			r.Post("/users", s.usersHandler.CreateUser)
-			r.Get("/users/{userId}", s.usersHandler.GetUser)
-			r.Patch("/users/{userId}", s.usersHandler.UpdateUser)
-			r.Delete("/users/{userId}", s.usersHandler.DeleteUser)
+			r.Post("/users/register", s.usersHandler.CreateUser)
+			r.Patch("/users/register/otp", s.usersHandler.ValidateUser)
+			r.Post("/users/login", s.usersHandler.LoginUser)
+			r.Post("/users/refresh", s.usersHandler.RefreshToken)
+
+			r.Group(func(r chi.Router) {
+				r.Use(s.jwtAuth)
+				r.Get("/users/{userId}", s.usersHandler.GetUser)
+				r.Patch("/users/{userId}", s.usersHandler.UpdateUser)
+				r.Delete("/users/{userId}", s.usersHandler.DeleteUser)
+			})
 		})
 	})
 

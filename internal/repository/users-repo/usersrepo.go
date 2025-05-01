@@ -14,6 +14,10 @@ import (
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 )
 
+const (
+	maxUpdates = 6
+)
+
 type database interface {
 	Exec(ctx context.Context, sq string, arguments ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sq string, arguments ...any) (pgx.Rows, error)
@@ -31,60 +35,136 @@ func New(db database) *Repo {
 	}
 }
 
-func (r *Repo) CreateUnverifiedUser(ctx context.Context, user entity.User) (entity.User, error) {
-	query := `
-INSERT INTO users (id, first_name, last_name, nick_name, gender, age, email, phone)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, first_name, last_name, nick_name, gender, age, email, phone, created_at, is_verified, updated_at, deleted_at`
+//nolint:funlen
+func (r *Repo) CreateUnverifiedUser(ctx context.Context, user entity.User, otp string, otpExpiresAt time.Time) error {
+	tx := r.db.GetTXFromContext(ctx)
 
-	row := r.db.QueryRow(ctx, query,
+	var (
+		sb      strings.Builder
+		params  []interface{}
+		columns []string
+		values  []string
+	)
+
+	columns = append(columns, "id", "is_verified", "created_at", "otp", "otp_expires_at")
+	values = append(values,
+		fmt.Sprintf("$%d", len(params)+1),
+		fmt.Sprintf("$%d", len(params)+2), //nolint:mnd
+		fmt.Sprintf("$%d", len(params)+3), //nolint:mnd
+		fmt.Sprintf("$%d", len(params)+4), //nolint:mnd
+		fmt.Sprintf("$%d", len(params)+5), //nolint:mnd
+	)
+
+	params = append(params,
 		user.UserID,
-		user.FirstName,
-		user.LastName,
-		user.NickName,
-		user.Gender,
-		user.Age,
-		user.Email,
-		user.Phone,
+		false,
+		time.Now(),
+		otp,
+		otpExpiresAt,
 	)
 
-	var unverifiedUser entity.User
-
-	err := row.Scan(
-		&unverifiedUser.UserID,
-		&unverifiedUser.FirstName,
-		&unverifiedUser.LastName,
-		&unverifiedUser.NickName,
-		&unverifiedUser.Gender,
-		&unverifiedUser.Age,
-		&unverifiedUser.Email,
-		&unverifiedUser.Phone,
-		&unverifiedUser.CreatedAt,
-		&unverifiedUser.IsVerified,
-		&unverifiedUser.UpdatedAt,
-		&unverifiedUser.DeletedAt,
-	)
-	if err != nil {
-		return entity.User{}, fmt.Errorf("failed to create user: %w", err)
+	if user.FirstName != nil {
+		columns = append(columns, "first_name")
+		values = append(values, fmt.Sprintf("$%d", len(params)+1))
+		params = append(params, *user.FirstName)
 	}
 
-	return unverifiedUser, nil
+	if user.LastName != nil {
+		columns = append(columns, "last_name")
+		values = append(values, fmt.Sprintf("$%d", len(params)+1))
+		params = append(params, *user.LastName)
+	}
+
+	if user.NickName != "" {
+		columns = append(columns, "nick_name")
+		values = append(values, fmt.Sprintf("$%d", len(params)+1))
+		params = append(params, user.NickName)
+	}
+
+	if user.Gender != nil {
+		columns = append(columns, "gender")
+		values = append(values, fmt.Sprintf("$%d", len(params)+1))
+		params = append(params, *user.Gender)
+	}
+
+	if user.Age != nil {
+		columns = append(columns, "age")
+		values = append(values, fmt.Sprintf("$%d", len(params)+1))
+		params = append(params, *user.Age)
+	}
+
+	if user.Email != nil {
+		columns = append(columns, "email")
+		values = append(values, fmt.Sprintf("$%d", len(params)+1))
+		params = append(params, *user.Email)
+	}
+
+	if user.Phone != nil {
+		columns = append(columns, "phone")
+		values = append(values, fmt.Sprintf("$%d", len(params)+1))
+		params = append(params, *user.Phone)
+	}
+
+	sb.WriteString("INSERT INTO users (")
+	sb.WriteString(strings.Join(columns, ", "))
+	sb.WriteString(") VALUES (")
+	sb.WriteString(strings.Join(values, ", "))
+	sb.WriteString(")")
+
+	_, err := tx.Exec(ctx, sb.String(), params...)
+	if err != nil {
+		return fmt.Errorf("failed to create unverified user: %w", err)
+	}
+
+	return nil
 }
 
-func (r *Repo) VerifyUser(ctx context.Context, unverifiedUserID entity.UserID) (entity.User, error) {
+func (r *Repo) VerifyUserWithOTP(ctx context.Context, unverifiedUser entity.User) error {
 	tx := r.db.GetTXFromContext(ctx)
+
+	if unverifiedUser.OTPExpiresAt.Before(time.Now()) {
+		return entity.ErrOTPExpired
+	}
 
 	query := `
 UPDATE users
 SET is_verified = true
-WHERE id = $1
-RETURNING id, first_name, last_name, nick_name, gender, age, email, phone, created_at, is_verified, updated_at, deleted_at`
+WHERE TRUE
+	AND id = $1
+	AND otp = $2
+	AND otp_expires_at > NOW()`
 
-	row := tx.QueryRow(ctx, query, unverifiedUserID)
+	result, err := tx.Exec(ctx, query, unverifiedUser.UserID, unverifiedUser.OTP, unverifiedUser.OTPExpiresAt)
+	if err != nil {
+		return fmt.Errorf("error verifying user %s: %w", uuid.UUID(unverifiedUser.UserID), err)
+	}
 
+	if result.RowsAffected() == 0 {
+		return entity.ErrInvalidOTP
+	}
+
+	return nil
+}
+
+func (r *Repo) GetUser(ctx context.Context, userID entity.UserID) (entity.User, error) {
 	var user entity.User
 
-	err := row.Scan(
+	query := `
+SELECT id, first_name, last_name, nick_name, gender, age, email, phone, created_at, is_verified, updated_at, deleted_at
+FROM users
+WHERE TRUE
+	AND id = $1
+	AND deleted_at IS NULL`
+
+	var db store.Transaction
+
+	db = r.db.GetTXFromContext(ctx)
+
+	if db == nil {
+		db = r.db
+	}
+
+	err := db.QueryRow(ctx, query, userID).Scan(
 		&user.UserID,
 		&user.FirstName,
 		&user.LastName,
@@ -109,47 +189,7 @@ RETURNING id, first_name, last_name, nick_name, gender, age, email, phone, creat
 	return user, nil
 }
 
-func (r *Repo) GetUser(ctx context.Context, userID entity.UserID) (entity.User, error) {
-	var user entity.User
-
-	query := `
-SELECT id, first_name, last_name, nick_name, gender, age, email, created_at, updated_at, deleted_at
-FROM users
-WHERE TRUE
-	AND id = $1
-	AND deleted_at IS NULL`
-
-	var db store.Transaction
-
-	db = r.db.GetTXFromContext(ctx)
-
-	if db == nil {
-		db = r.db
-	}
-
-	err := db.QueryRow(ctx, query, userID).Scan(
-		&user.UserID,
-		&user.FirstName,
-		&user.LastName,
-		&user.NickName,
-		&user.Gender,
-		&user.Age,
-		&user.Email,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-		&user.DeletedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return entity.User{}, entity.ErrUserNotFound
-		}
-
-		return entity.User{}, fmt.Errorf("failed to get user info: %w", err)
-	}
-
-	return user, nil
-}
-
+//nolint:funlen
 func (r *Repo) UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error) {
 	tx := r.db.GetTXFromContext(ctx)
 
@@ -159,7 +199,7 @@ func (r *Repo) UpdateUser(ctx context.Context, userID entity.UserID, updatedUser
 	)
 
 	paramCount := 1
-	updates := make([]string, 0, 6)
+	updates := make([]string, 0, maxUpdates)
 
 	sb.WriteString("UPDATE users SET ")
 
@@ -203,7 +243,7 @@ func (r *Repo) UpdateUser(ctx context.Context, userID entity.UserID, updatedUser
 
 	sb.WriteString(strings.Join(updates, ", "))
 
-	sb.WriteString(fmt.Sprintf(" WHERE id = $%d AND deleted_at IS NUL", paramCount))
+	sb.WriteString(fmt.Sprintf(" WHERE id = $%d AND deleted_at IS NULL", paramCount))
 
 	params = append(params, userID)
 

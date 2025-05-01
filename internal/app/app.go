@@ -9,9 +9,10 @@ import (
 	"github.com/romanpitatelev/clothing-service/internal/configs"
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
+	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
-	smsregistration "github.com/romanpitatelev/clothing-service/internal/sms-registration"
+	tokenservice "github.com/romanpitatelev/clothing-service/internal/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
@@ -33,12 +34,20 @@ func Run(cfg *configs.Config) error {
 	log.Info().Msg("successful migration")
 
 	usersRepo := usersrepo.New(db)
-	smsService := smsregistration.New(cfg.GetSMSConfig())
-	smsService.StartCleanup()
+	smsService := smsregistrationrepo.New(smsregistrationrepo.Config{
+		Email:                cfg.SMSEmail,
+		ApiKey:               cfg.SMSAPIKey,
+		Sender:               cfg.SMSSenderName,
+		CodeLength:           cfg.SMSCodeLength,
+		CodeValidityDuration: cfg.SMSCodeValidityDuration,
+	})
+
+	tokenGenerator := tokenservice.New(cfg.JWTPrivateKey, cfg.JWTPublicKey)
 
 	usersService := usersservice.New(
 		usersRepo,
 		smsService,
+		tokenGenerator,
 	)
 
 	usersHandler := usershandler.New(usersService)

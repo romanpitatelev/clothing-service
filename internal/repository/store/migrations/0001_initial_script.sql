@@ -1,19 +1,21 @@
 -- +migrate Up
 CREATE TABLE users (
 	id UUID PRIMARY KEY,
-	first_name VARCHAR NOT NULL,
-	last_name VARCHAR NOT NULL,
-	nick_name VARCHAR NOT NULL,
-	gender VARCHAR NOT NULL,
-	age INTEGER NOT NULL CHECK (age > 12),
-	email VARCHAR NOT NULL UNIQUE,
-	phone VARCHAR NOT NULL UNIQUE,
+	first_name VARCHAR,
+	last_name VARCHAR,
+	nick_name VARCHAR,
+	gender VARCHAR,
+	age INTEGER CHECK (age > 12),
+	email VARCHAR UNIQUE,
+	phone VARCHAR UNIQUE,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	is_verified BOOLEAN NOT NULL DEFAULT FALSE,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	deleted_at TIMESTAMP WITH TIME ZONE
+	deleted_at TIMESTAMP WITH TIME ZONE,
+	otp VARCHAR,
+	otp_expires_at TIMESTAMP WITH TIME ZONE
 );
 
 -- +migrate Down
-DROP TABLE users CASCADE;
+DROP TABLE users;
 

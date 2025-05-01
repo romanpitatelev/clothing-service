@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/romanpitatelev/clothing-service/internal/entity"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
 )
@@ -96,6 +97,19 @@ func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 	return nil
 }
 
+func (d *DataStore) UpsertUser(ctx context.Context, user entity.User) error {
+	query := `
+INSERT INTO users (id, first_name, last_name, age, is_verified)
+VALUES ($1, $2, $3, $4, $5)`
+
+	_, err := d.pool.Exec(ctx, query, user.UserID, user.FirstName, user.LastName, user.Age, user.IsVerified)
+	if err != nil {
+		return fmt.Errorf("failed to upsert user: %w", err)
+	}
+
+	return nil
+}
+
 func (d *DataStore) Truncate(ctx context.Context, tables ...string) error {
 	for _, table := range tables {
 		if _, err := d.pool.Exec(ctx, `DELETE FROM `+table); err != nil {
@@ -134,9 +148,9 @@ type Transaction interface {
 	QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row
 }
 
-//nolint:gochecknoglobals
 type txtCtxKey string
 
+//nolint:gochecknoglobals
 var ctxKey txtCtxKey = "tx"
 
 func (d *DataStore) GetTXFromContext(ctx context.Context) Transaction {

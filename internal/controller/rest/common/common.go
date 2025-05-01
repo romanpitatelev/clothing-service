@@ -45,8 +45,12 @@ func getStatusCode(err error) int {
 	switch {
 	case errors.Is(err, entity.ErrUserNotFound):
 		return http.StatusNotFound
-	case errors.Is(err, entity.ErrInvalidToken):
-		return http.StatusUnauthorized
+	case errors.Is(err, entity.ErrInvalidPhone):
+		return http.StatusBadRequest
+	case errors.Is(err, entity.ErrInvalidOTP):
+		return http.StatusForbidden
+	case errors.Is(err, entity.ErrOTPExpired):
+		return http.StatusGone
 	default:
 		return http.StatusInternalServerError
 	}

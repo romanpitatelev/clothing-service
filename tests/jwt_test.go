@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
+	tokenservice "github.com/romanpitatelev/clothing-service/internal/token-service"
 )
 
 //go:embed keys/private_key.pem
@@ -45,7 +46,7 @@ func ValidateToken(tokenStr string, claims *entity.Claims, secret *rsa.PublicKey
 	}
 
 	if !token.Valid {
-		return entity.ErrInvalidToken
+		return tokenservice.ErrInvalidToken
 	}
 
 	return nil
