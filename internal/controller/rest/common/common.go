@@ -49,8 +49,13 @@ func getStatusCode(err error) int {
 		return http.StatusBadRequest
 	case errors.Is(err, entity.ErrInvalidOTP):
 		return http.StatusForbidden
-	case errors.Is(err, entity.ErrOTPExpired):
-		return http.StatusGone
+	case errors.Is(err, entity.ErrDuplicateContact):
+		return http.StatusConflict
+	case errors.Is(err, entity.ErrTokenExpired) ||
+		errors.Is(err, entity.ErrInvalidToken) ||
+		errors.Is(err, entity.ErrInvalidUUIDFormat) ||
+		errors.Is(err, entity.ErrInvalidSigningMethod):
+		return http.StatusUnauthorized
 	default:
 		return http.StatusInternalServerError
 	}

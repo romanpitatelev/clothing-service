@@ -2,14 +2,14 @@ package rest
 
 import (
 	"context"
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,23 +23,27 @@ type Config struct {
 }
 
 type Server struct {
+	cfg          Config
 	server       *http.Server
 	usersHandler usersHandler
-	port         int
-	key          *rsa.PublicKey
+	tokenHandler tokenHandler
 }
 
 type usersHandler interface {
 	CreateUser(w http.ResponseWriter, r *http.Request)
-	ValidateUser(w http.ResponseWriter, r *http.Request)
 	LoginUser(w http.ResponseWriter, r *http.Request)
-	RefreshToken(w http.ResponseWriter, r *http.Request)
 	GetUser(w http.ResponseWriter, r *http.Request)
 	UpdateUser(w http.ResponseWriter, r *http.Request)
 	DeleteUser(w http.ResponseWriter, r *http.Request)
 }
 
-func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server {
+type tokenHandler interface {
+	ValidateUser(w http.ResponseWriter, r *http.Request)
+	RefreshToken(w http.ResponseWriter, r *http.Request)
+	JWTAuth(next http.Handler) http.Handler
+}
+
+func New(cfg Config, userHandler usersHandler, tokenHandler tokenHandler) *Server {
 	router := chi.NewRouter()
 	s := &Server{
 		server: &http.Server{
@@ -47,22 +51,23 @@ func New(cfg Config, userusersHandler usersHandler, key *rsa.PublicKey) *Server 
 			Handler:           router,
 			ReadHeaderTimeout: ReadHeaderTimeoutValue * time.Second,
 		},
-		usersHandler: userusersHandler,
-		port:         cfg.Port,
-		key:          key,
+		usersHandler: userHandler,
+		cfg:          cfg,
+		tokenHandler: tokenHandler,
 	}
 
+	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 	router.Route("/api", func(r chi.Router) {
 		r.Route("/v1", func(r chi.Router) {
 			r.Use(middleware.Recoverer)
 
 			r.Post("/users/register", s.usersHandler.CreateUser)
-			r.Patch("/users/register/otp", s.usersHandler.ValidateUser)
-			r.Post("/users/login", s.usersHandler.LoginUser)
-			r.Post("/users/refresh", s.usersHandler.RefreshToken)
+			r.Post("/users/{userId}/login", s.usersHandler.LoginUser)
+			r.Post("/users/{userId}/otp", s.tokenHandler.ValidateUser)
+			r.Post("/users/{userId}/refresh", s.tokenHandler.RefreshToken)
 
 			r.Group(func(r chi.Router) {
-				r.Use(s.jwtAuth)
+				r.Use(s.tokenHandler.JWTAuth)
 				r.Get("/users/{userId}", s.usersHandler.GetUser)
 				r.Patch("/users/{userId}", s.usersHandler.UpdateUser)
 				r.Delete("/users/{userId}", s.usersHandler.DeleteUser)

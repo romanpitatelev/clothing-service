@@ -7,45 +7,24 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
+	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
+	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
-	tokenservice "github.com/romanpitatelev/clothing-service/internal/token-service"
+	"github.com/romanpitatelev/clothing-service/internal/usecase/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/stretchr/testify/suite"
 )
-
-type testSMSService struct {
-	sendOTPChan chan otpRequest
-}
-
-type otpRequest struct {
-	phone string
-	otp   string
-}
-
-func newTestSMSService() *testSMSService {
-	return &testSMSService{
-		sendOTPChan: make(chan otpRequest),
-	}
-}
-
-func (s *testSMSService) SendOTP(ctx context.Context, phone string, otp string) error {
-	select {
-	case s.sendOTPChan <- otpRequest{phone: phone, otp: otp}:
-		return nil
-	case <-ctx.Done():
-		return fmt.Errorf("sms service context canceld: %w", ctx.Err())
-	}
-}
 
 const (
 	pgDSN               = "postgresql://postgres:my_pass@localhost:5432/clothing_db"
@@ -61,12 +40,14 @@ type IntegrationTestSuite struct {
 	suite.Suite
 	cancelFunc   context.CancelFunc
 	db           *store.DataStore
-	usersrepo    *usersrepo.Repo
-	tokenRepo    *tokenservice.Generator
-	usersservice *usersservice.Service
-	usershandler *usershandler.Handler
+	usersRepo    *usersrepo.Repo
+	tokenService *tokenservice.Service
+	usersService *usersservice.Service
+	iamHandler   *iamhandler.Handler
+	usersHandler *usershandler.Handler
 	server       *rest.Server
-	smsService   *testSMSService
+	smsRepo      *smsregistrationrepo.SMSService
+	smsChan      chan otpResp
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
@@ -91,30 +72,35 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 
 	publicKey := &privateKey.PublicKey
-	s.tokenRepo = tokenservice.New(privateKey, publicKey)
+	s.usersRepo = usersrepo.New(s.db)
+	s.smsRepo = smsregistrationrepo.New(smsregistrationrepo.Config{
+		Host:   "localhost:" + strconv.Itoa(port+1),
+		Schema: "http",
+		Email:  "biba",
+		ApiKey: "boba",
+		Sender: "pasha",
+	})
 
-	s.usersrepo = usersrepo.New(s.db)
+	s.tokenService = tokenservice.New(tokenservice.Config{
+		OTPLifetime: otpDuration,
+		PrivateKey:  privateKey,
+		PublicKey:   publicKey,
+	}, s.usersRepo)
+	s.usersService = usersservice.New(usersservice.Config{
+		OTPMaxValue: 9999,
+	}, s.usersRepo, s.smsRepo)
 
-	s.smsService = newTestSMSService()
+	s.usersHandler = usershandler.New(s.usersService)
+	s.iamHandler = iamhandler.New(s.tokenService)
+
+	s.server = rest.New(rest.Config{Port: port}, s.usersHandler, s.iamHandler)
 
 	log.Info().Msg("sms client is ready")
 
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case req := <-s.smsService.sendOTPChan:
-				log.Info().Msgf("received otp request - phone: %s, otp: %s", req.phone, req.otp)
-			}
-		}
+		s.smsChan = make(chan otpResp)
+		s.runServer(ctx, ":"+strconv.Itoa(port+1))
 	}()
-
-	s.usersservice = usersservice.New(s.usersrepo, s.smsService, s.tokenRepo)
-
-	s.usershandler = usershandler.New(s.usersservice)
-
-	s.server = rest.New(rest.Config{Port: port}, s.usershandler, rest.GetPublicKey())
 
 	//nolint:testifylint
 	go func() {
@@ -122,7 +108,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 		s.Require().NoError(err)
 	}()
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(50 * time.Millisecond)
 }
 
 func (s *IntegrationTestSuite) TearDownSuite() {

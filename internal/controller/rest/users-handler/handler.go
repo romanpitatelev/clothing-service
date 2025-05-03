@@ -12,10 +12,8 @@ import (
 )
 
 type usersService interface {
-	CreateUser(ctx context.Context, user entity.User) error
-	ValidateUser(ctx context.Context, user entity.User) (entity.Tokens, error)
-	LoginUser(ctx context.Context, userID entity.UserID) (entity.Tokens, error)
-	RefreshToken(ctx context.Context, tokens entity.Tokens) (entity.Tokens, error)
+	CreateUser(ctx context.Context, user entity.User) (entity.User, error)
+	LoginUser(ctx context.Context, userID entity.UserID) error
 	GetUser(ctx context.Context, userID entity.UserID) (entity.User, error)
 	UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error)
 	DeleteUser(ctx context.Context, userID entity.UserID) error
@@ -42,84 +40,20 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	if err := h.usersService.CreateUser(ctx, user); err != nil {
+	user, err := h.usersService.CreateUser(ctx, user)
+	if err != nil {
 		common.ErrorResponse(w, "error creating user", err)
 
 		return
 	}
 
-	common.OkResponse(w, http.StatusOK, nil)
-}
-
-func (h *Handler) ValidateUser(w http.ResponseWriter, r *http.Request) {
-	var user entity.User
-
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
-
-		return
-	}
-
-	ctx := r.Context()
-
-	tokens, err := h.usersService.ValidateUser(ctx, user)
-	if err != nil {
-		common.ErrorResponse(w, "error validating user", err)
-
-		return
-	}
-
-	common.OkResponse(w, http.StatusOK, tokens)
-}
-
-func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
-	var userID entity.UserID
-
-	if err := json.NewDecoder(r.Body).Decode(&userID); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
-
-		return
-	}
-
-	ctx := r.Context()
-
-	tokens, err := h.usersService.LoginUser(ctx, userID)
-	if err != nil {
-		common.ErrorResponse(w, "user login error", err)
-
-		return
-	}
-
-	common.OkResponse(w, http.StatusOK, tokens)
-}
-
-func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	var tokens entity.Tokens
-
-	if err := json.NewDecoder(r.Body).Decode(&tokens); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
-
-		return
-	}
-
-	ctx := r.Context()
-
-	newTokens, err := h.usersService.RefreshToken(ctx, tokens)
-	if err != nil {
-		common.ErrorResponse(w, "error refreshing token", err)
-
-		return
-	}
-
-	common.OkResponse(w, http.StatusOK, newTokens)
+	common.OkResponse(w, http.StatusOK, user)
 }
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
-	userIDStr := chi.URLParam(r, "id")
-
-	userID, err := uuid.Parse(userIDStr)
+	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
 	if err != nil {
-		http.Error(w, "failed to parse user id", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}
@@ -136,12 +70,30 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	common.OkResponse(w, http.StatusOK, userInfo)
 }
 
-func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	userIDStr := chi.URLParam(r, "id")
-
-	userID, err := uuid.Parse(userIDStr)
+func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
 	if err != nil {
-		http.Error(w, "failed to parse user id", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+
+		return
+	}
+
+	ctx := r.Context()
+
+	err = h.usersService.LoginUser(ctx, entity.UserID(userID))
+	if err != nil {
+		common.ErrorResponse(w, "user login error", err)
+
+		return
+	}
+
+	common.OkResponse(w, http.StatusOK, nil)
+}
+
+func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}
@@ -167,11 +119,9 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	userIDStr := chi.URLParam(r, "id")
-
-	userID, err := uuid.Parse(userIDStr)
+	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
 	if err != nil {
-		http.Error(w, "failed to parse user id", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}

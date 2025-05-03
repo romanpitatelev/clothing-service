@@ -18,33 +18,42 @@ const (
 	phoneNumberLengthShort = 10
 )
 
-type (
-	UserID uuid.UUID
-)
+type UserID uuid.UUID //nolint:recvcheck
+
+func (u UserID) String() string {
+	return uuid.UUID(u).String()
+}
 
 type User struct {
-	UserID       UserID     `json:"id"`
-	FirstName    *string    `json:"firstName"`
-	LastName     *string    `json:"lastName"`
-	NickName     string     `json:"nickName"`
-	Gender       *string    `json:"gender"`
-	Age          *int       `json:"age"`
-	Email        *string    `json:"email"`
-	Phone        *string    `json:"phone"`
-	CreatedAt    time.Time  `json:"createdAt"`
-	IsVerified   bool       `json:"isVerified"`
-	UpdatedAt    *time.Time `json:"updatedAt"`
-	DeletedAt    *time.Time `json:"deletedAt"`
-	OTP          string     `json:"otp"`
-	OTPExpiresAt time.Time  `json:"otpExpiresAt"`
+	UserID        UserID     `json:"id"`
+	FirstName     *string    `json:"firstName"`
+	LastName      *string    `json:"lastName"`
+	NickName      string     `json:"nickName"`
+	Gender        *string    `json:"gender"`
+	BirthDate     *time.Time `json:"birthDate"`
+	Email         *string    `json:"email"`
+	EmailVerified bool       `json:"emailVerified"`
+	Phone         string     `json:"phone"`
+	PhoneVerified bool       `json:"phoneVerified"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     *time.Time `json:"updatedAt"`
+	DeletedAt     *time.Time `json:"deletedAt"`
+	OTP           string     `json:"otp"`
+	OTPCreatedAt  time.Time  `json:"-"`
 }
 
 type UserUpdate struct {
-	FirstName *string `json:"firstName"`
-	LastName  *string `json:"lastName"`
-	NickName  *string `json:"nickName"`
-	Email     *string `json:"email"`
-	Phone     *string `json:"phone"`
+	FirstName     *string    `json:"firstName"`
+	LastName      *string    `json:"lastName"`
+	NickName      *string    `json:"nickName"`
+	Gender        *string    `json:"gender"`
+	Email         *string    `json:"email"`
+	BirthDate     *time.Time `json:"birthDate"`
+	EmailVerified *bool      `json:"-"`
+	Phone         *string    `json:"phone"`
+	PhoneVerified *bool      `json:"-"`
+	OTP           *string    `json:"-"`
+	OTPCreatedAt  *time.Time `json:"-"`
 }
 
 type Claims struct {
@@ -58,11 +67,12 @@ var (
 	ErrInvalidSigningMethod = errors.New("invalid signing method")
 	ErrUserNotFound         = errors.New("user not found")
 	ErrInvalidPhone         = errors.New("invalid phone number")
-	ErrAccessTokenExpired   = errors.New("expired access token")
-	ErrUserNotVerified      = errors.New("user not verified")
+	ErrInvalidUserIDFormat  = errors.New("invalid user id format")
+	ErrInvalidToken         = errors.New("invalid token")
+	ErrTokenExpired         = errors.New("token is expired")
 	ErrInvalidUUIDFormat    = errors.New("invalid uuid format")
-	ErrOTPExpired           = errors.New("otp has expired")
 	ErrInvalidOTP           = errors.New("invalid otp")
+	ErrDuplicateContact     = errors.New("duplicate contact")
 )
 
 type UserInfo struct {
@@ -72,9 +82,10 @@ type UserInfo struct {
 }
 
 type Tokens struct {
-	AccessToken  string    `json:"accessToken"`
-	RefreshToken string    `json:"refreshToken"`
-	Timeout      time.Time `json:"timeout"`
+	UserID       UserID `json:"-"`
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	Timeout      int    `json:"timeout"`
 }
 
 func validateEmail(email string) error {
@@ -123,12 +134,12 @@ func containsOnlyDigits(s string) bool {
 }
 
 func (u *User) Validate() (User, error) {
-	formattedPhone, err := validatePhone(*u.Phone)
+	formattedPhone, err := validatePhone(u.Phone)
 	if err != nil {
 		return User{}, fmt.Errorf("phone validation error: %w", err)
 	}
 
-	*u.Phone = formattedPhone
+	u.Phone = formattedPhone
 
 	if u.Email != nil {
 		err := validateEmail(*u.Email)
@@ -187,4 +198,9 @@ func (u UserID) MarshalText() ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+type ValidateUserRequest struct {
+	UserID UserID `json:"userId"`
+	OTP    string `json:"otp"`
 }

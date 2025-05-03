@@ -2,7 +2,6 @@ package configs
 
 import (
 	"crypto/rsa"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,22 +13,23 @@ import (
 )
 
 const (
-	JWTPrivateKeyPath = "./tests/keys/private_key.pem"
-	JWTPublicKeyPath  = "./internal/controller/rest/keys/public_key.pem"
+	JWTPrivateKeyPath = "./private_key.pem"
+	JWTPublicKeyPath  = "./internal/config/public_key.pem"
 )
-
-var ErrInvalidFilePath = errors.New("invalid file path")
 
 type Config struct {
 	AppPort int `env:"APP_PORT" env-default:"8081" env-description:"Application port"`
 
-	PostgresDSN string `env:"POSTGRES_PORT" env-default:"postgresql://postgres:my_pass@localhost:5432/clothing_db" env-description:"PostgreSQL DSN"`
+	PostgresDSN string `env:"POSTGRES_DSN" env-default:"postgresql://postgres:my_pass@localhost:5432/clothing_db" env-description:"PostgreSQL DSN"`
 
-	SMSEmail                string        `env:"SMS_EMAIL" env-default:"rpitatelev@gmail.com"`
-	SMSAPIKey               string        `snf:"SMS_API_KEY" env-default:"o7KDkzhEcTFceryZLZ2xZcs3muTWgi-P"`
-	SMSSenderName           string        `env:"SMS_SENDER_NAME" env-default:"clothing_service"`
-	SMSCodeLength           int           `env:"SMS_CODE_LENGTH" env-default:"4"`
-	SMSCodeValidityDuration time.Duration `env:"SMS_CODE_VALIDITY_DURATION" env-default:"5m"`
+	SMSAPIHost        string        `env:"SMS_API_HOST" env-default:"gate.smsaero.ru"`
+	SMSAPISchema      string        `env:"SMS_API_SCHEMA" env-default:"https"`
+	SMSEmail          string        `env:"SMS_EMAIL" env-default:"rpitatelev@gmail.com"`
+	SMSAPIKey         string        `snf:"SMS_API_KEY" env-default:"o7KDkzhEcTFceryZLZ2xZcs3muTWgi-P"`
+	SMSSenderName     string        `env:"SMS_SENDER_NAME" env-default:"Lookaround"`
+	SMSSenderTestMode bool          `env:"SMS_SENDER_TEST_MODE" env-default:"true"`
+	OTPMaxValue       int           `env:"OTP_MAX_VALUE" env-default:"9999"`
+	OTPLifetime       time.Duration `env:"OTP_LIFETIME" env-default:"5m"`
 
 	S3Address string `env:"S3_ADDRESS" env-default:"http://localhost:9000"`
 	S3Bucket  string `env:"S3_BUCKET" env-default:"test.bucket"`

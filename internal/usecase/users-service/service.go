@@ -2,23 +2,19 @@ package usersservice
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
-)
-
-const (
-	otpLength   = 4
-	otpDuration = 5 * time.Minute
-	ten         = 10
+	"github.com/romanpitatelev/clothing-service/internal/utils"
 )
 
 type usersStore interface {
-	CreateUnverifiedUser(ctx context.Context, user entity.User, otp string, otpExpiresAt time.Time) error
-	VerifyUserWithOTP(ctx context.Context, unverifiedUser entity.User) error
+	CreateUnverifiedUser(ctx context.Context, user entity.User, otp string) (entity.User, error)
 	GetUser(ctx context.Context, userID entity.UserID) (entity.User, error)
 	UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error)
 	DeleteUser(ctx context.Context, userID entity.UserID) error
@@ -28,108 +24,60 @@ type smsRegistration interface {
 	SendOTP(ctx context.Context, phone string, otp string) error
 }
 
-type tokenGenerator interface {
-	GenerateTokens(user entity.User) (entity.Tokens, error)
-	GenerateAccessToken(user entity.User) (string, error)
-	GenerateAccessTokenTimeout() time.Time
-	ParseRefreshToken(tokens entity.Tokens) (entity.UserID, error)
+type Config struct {
+	OTPMaxValue int
 }
 
 type Service struct {
+	cfg             Config
 	usersStore      usersStore
 	smsRegistration smsRegistration
-	tokenGenerator  tokenGenerator
 }
 
-func New(usersStore usersStore, smssmsRegistration smsRegistration, tokentokenGenerator tokenGenerator) *Service {
+func New(cfg Config, usersStore usersStore, smsRegistration smsRegistration) *Service {
 	return &Service{
+		cfg:             cfg,
 		usersStore:      usersStore,
-		smsRegistration: smssmsRegistration,
-		tokenGenerator:  tokentokenGenerator,
+		smsRegistration: smsRegistration,
 	}
 }
 
-func (s *Service) CreateUser(ctx context.Context, user entity.User) error {
+func (s *Service) CreateUser(ctx context.Context, user entity.User) (entity.User, error) {
 	validatedUser, err := user.Validate()
 	if err != nil {
-		return fmt.Errorf("user validation failed: %w", err)
+		return entity.User{}, fmt.Errorf("user validation failed: %w", err)
 	}
 
-	otp := generateOTP()
-	otpExpiresAt := time.Now().Add(otpDuration)
+	otp := s.generateOTP()
+	validatedUser.UserID = entity.UserID(uuid.New())
 
-	if err = s.usersStore.CreateUnverifiedUser(ctx, validatedUser, otp, otpExpiresAt); err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
+	if user, err = s.usersStore.CreateUnverifiedUser(ctx, validatedUser, otp); err != nil {
+		return entity.User{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	if err = s.smsRegistration.SendOTP(ctx, *user.Phone, user.OTP); err != nil {
+	if err = s.smsRegistration.SendOTP(ctx, user.Phone, otp); err != nil {
+		return entity.User{}, fmt.Errorf("failed to send otp: %w", err)
+	}
+
+	return user, nil
+}
+
+func (s *Service) LoginUser(ctx context.Context, userID entity.UserID) error {
+	otp := s.generateOTP()
+
+	user, err := s.usersStore.UpdateUser(ctx, userID, entity.UserUpdate{
+		OTP:          &otp,
+		OTPCreatedAt: utils.Pointer(time.Now()),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	if err = s.smsRegistration.SendOTP(ctx, user.Phone, otp); err != nil {
 		return fmt.Errorf("failed to send otp: %w", err)
 	}
 
 	return nil
-}
-
-func (s *Service) ValidateUser(ctx context.Context, user entity.User) (entity.Tokens, error) {
-	err := s.usersStore.VerifyUserWithOTP(ctx, user)
-	if err != nil {
-		return entity.Tokens{}, fmt.Errorf("verification failed: %w", err)
-	}
-
-	tokens, err := s.tokenGenerator.GenerateTokens(user)
-	if err != nil {
-		return entity.Tokens{}, fmt.Errorf("failed to generate tokens in ValidateUser(): %w", err)
-	}
-
-	return tokens, nil
-}
-
-func (s *Service) LoginUser(ctx context.Context, userID entity.UserID) (entity.Tokens, error) {
-	user, err := s.usersStore.GetUser(ctx, userID)
-	if err != nil {
-		return entity.Tokens{}, fmt.Errorf("failed to get user in LoginUser(): %w", err)
-	}
-
-	var tokens entity.Tokens
-
-	if user.IsVerified {
-		tokens, err = s.tokenGenerator.GenerateTokens(user)
-		if err != nil {
-			return entity.Tokens{}, fmt.Errorf("failed to generate tokens in LoginUser(): %w", err)
-		}
-	}
-
-	return tokens, nil
-}
-
-func (s *Service) RefreshToken(ctx context.Context, tokens entity.Tokens) (entity.Tokens, error) {
-	if tokens.Timeout.Unix() > time.Now().Unix() {
-		return entity.Tokens{}, entity.ErrAccessTokenExpired
-	}
-
-	userID, err := s.tokenGenerator.ParseRefreshToken(tokens)
-	if err != nil {
-		return entity.Tokens{}, fmt.Errorf("invalid refresh token: %w", err)
-	}
-
-	user, err := s.usersStore.GetUser(ctx, userID)
-	if err != nil {
-		return entity.Tokens{}, fmt.Errorf("user not found in RefreshToken(): %w", err)
-	}
-
-	if !user.IsVerified {
-		return entity.Tokens{}, entity.ErrUserNotVerified
-	}
-
-	accessToken, err := s.tokenGenerator.GenerateAccessToken(user)
-	if err != nil {
-		return entity.Tokens{}, fmt.Errorf("error creating access token: %w", err)
-	}
-
-	return entity.Tokens{
-		RefreshToken: tokens.RefreshToken,
-		AccessToken:  accessToken,
-		Timeout:      s.tokenGenerator.GenerateAccessTokenTimeout(),
-	}, nil
 }
 
 func (s *Service) GetUser(ctx context.Context, userID entity.UserID) (entity.User, error) {
@@ -168,13 +116,16 @@ func (s *Service) DeleteUser(ctx context.Context, userID entity.UserID) error {
 	return nil
 }
 
-func generateOTP() string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
-	code := ""
+func (s *Service) generateOTP() string {
+	randomInt, _ := rand.Int(rand.Reader, big.NewInt(int64(s.cfg.OTPMaxValue)))
 
-	for range otpLength {
-		code += strconv.Itoa(r.Intn(ten))
+	res := randomInt.String()
+
+	for {
+		if len(res) == len(strconv.Itoa(s.cfg.OTPMaxValue)) {
+			return res
+		}
+
+		res = "0" + res
 	}
-
-	return code
 }

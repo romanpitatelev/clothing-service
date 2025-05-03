@@ -8,11 +8,12 @@ import (
 
 	"github.com/romanpitatelev/clothing-service/internal/configs"
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
+	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
-	tokenservice "github.com/romanpitatelev/clothing-service/internal/token-service"
+	"github.com/romanpitatelev/clothing-service/internal/usecase/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
@@ -34,28 +35,31 @@ func Run(cfg *configs.Config) error {
 	log.Info().Msg("successful migration")
 
 	usersRepo := usersrepo.New(db)
-	smsService := smsregistrationrepo.New(smsregistrationrepo.Config{
-		Email:                cfg.SMSEmail,
-		ApiKey:               cfg.SMSAPIKey,
-		Sender:               cfg.SMSSenderName,
-		CodeLength:           cfg.SMSCodeLength,
-		CodeValidityDuration: cfg.SMSCodeValidityDuration,
+	smsClient := smsregistrationrepo.New(smsregistrationrepo.Config{
+		Schema:   cfg.SMSAPISchema,
+		Host:     cfg.SMSAPIHost,
+		Email:    cfg.SMSEmail,
+		ApiKey:   cfg.SMSAPIKey,
+		Sender:   cfg.SMSSenderName,
+		TestMode: cfg.SMSSenderTestMode,
 	})
 
-	tokenGenerator := tokenservice.New(cfg.JWTPrivateKey, cfg.JWTPublicKey)
-
-	usersService := usersservice.New(
-		usersRepo,
-		smsService,
-		tokenGenerator,
-	)
+	tokenService := tokenservice.New(tokenservice.Config{
+		OTPLifetime: cfg.OTPLifetime,
+		PublicKey:   cfg.JWTPublicKey,
+		PrivateKey:  cfg.JWTPrivateKey,
+	}, usersRepo)
+	usersService := usersservice.New(usersservice.Config{
+		OTPMaxValue: cfg.OTPMaxValue,
+	}, usersRepo, smsClient)
 
 	usersHandler := usershandler.New(usersService)
+	iamHandler := iamhandler.New(tokenService)
 
 	server := rest.New(
 		rest.Config{Port: cfg.AppPort},
 		usersHandler,
-		rest.GetPublicKey(),
+		iamHandler,
 	)
 
 	if err := server.Run(ctx); err != nil {
