@@ -30,4 +30,3 @@ CREATE UNIQUE INDEX users_unique_email_and_deleted_at_null_idx
 DROP INDEX users_unique_phone_and_deleted_at_null_idx;
 DROP INDEX users_unique_email_and_deleted_at_null_idx;
 DROP TABLE users;
-

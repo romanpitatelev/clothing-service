@@ -33,7 +33,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user entity.User
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}
@@ -134,5 +134,5 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	common.OkResponse(w, http.StatusNoContent, "user deleted successfully")
+	common.OkResponse(w, http.StatusNoContent, nil)
 }

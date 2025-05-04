@@ -10,8 +10,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const DefaultLimit = 25
-
 func ErrorResponse(w http.ResponseWriter, errorText string, err error) {
 	statusCode := getStatusCode(err)
 

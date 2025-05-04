@@ -38,7 +38,7 @@ func (h *Handler) ValidateUser(w http.ResponseWriter, r *http.Request) {
 	var validateUserRequest entity.ValidateUserRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&validateUserRequest); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}
@@ -61,7 +61,7 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var tokens entity.Tokens
 
 	if err := json.NewDecoder(r.Body).Decode(&tokens); err != nil {
-		http.Error(w, "error decoding request body", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}

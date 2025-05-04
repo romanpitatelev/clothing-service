@@ -191,8 +191,8 @@ func (u *UserID) UnmarshalText(data []byte) error {
 	return unmarshalUUID((*uuid.UUID)(u), data)
 }
 
-func (u UserID) MarshalText() ([]byte, error) {
-	data, err := json.Marshal(uuid.UUID(u).String())
+func (u *UserID) MarshalText() ([]byte, error) {
+	data, err := json.Marshal(uuid.UUID(*u).String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal UUID: %w", err)
 	}
