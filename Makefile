@@ -12,6 +12,10 @@ down:
 tidy:
 	go mod tidy
 
+tools:
+	go get -u mvdan.cc/gofumpt@latest
+	go get -u github.com/daixiang0/gci@latest
+
 lint: tidy
 	gofumpt -w .
 	gci write . --skip-generated -s standard -s default

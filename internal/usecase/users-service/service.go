@@ -49,7 +49,7 @@ func (s *Service) CreateUser(ctx context.Context, user entity.User) (entity.User
 	}
 
 	otp := s.generateOTP()
-	validatedUser.UserID = entity.UserID(uuid.New())
+	validatedUser.ID = entity.UserID(uuid.New())
 
 	if user, err = s.usersStore.CreateUnverifiedUser(ctx, validatedUser, otp); err != nil {
 		return entity.User{}, fmt.Errorf("failed to create user: %w", err)

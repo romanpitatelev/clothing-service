@@ -41,7 +41,8 @@ func OkResponse(w http.ResponseWriter, status int, response any) {
 
 func getStatusCode(err error) int {
 	switch {
-	case errors.Is(err, entity.ErrUserNotFound):
+	case errors.Is(err, entity.ErrUserNotFound) ||
+		errors.Is(err, entity.ErrClothingNotFound):
 		return http.StatusNotFound
 	case errors.Is(err, entity.ErrInvalidPhone):
 		return http.StatusBadRequest

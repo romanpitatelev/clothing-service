@@ -14,19 +14,12 @@ import (
 )
 
 const (
-	ReadHeaderTimeoutValue = 3
+	readHeaderTimeoutValue = 3 * time.Second
 	timeoutDuration        = 10 * time.Second
 )
 
 type Config struct {
 	Port int
-}
-
-type Server struct {
-	cfg          Config
-	server       *http.Server
-	usersHandler usersHandler
-	tokenHandler tokenHandler
 }
 
 type usersHandler interface {
@@ -43,17 +36,35 @@ type tokenHandler interface {
 	JWTAuth(next http.Handler) http.Handler
 }
 
-func New(cfg Config, userHandler usersHandler, tokenHandler tokenHandler) *Server {
+type clothesHandler interface {
+	GetClothing(w http.ResponseWriter, r *http.Request)
+}
+
+type Server struct {
+	cfg            Config
+	server         *http.Server
+	usersHandler   usersHandler
+	tokenHandler   tokenHandler
+	clothesHandler clothesHandler
+}
+
+func New(
+	cfg Config,
+	userHandler usersHandler,
+	tokenHandler tokenHandler,
+	clothesHandler clothesHandler,
+) *Server { //nolint:whitespace
 	router := chi.NewRouter()
 	s := &Server{
 		server: &http.Server{
 			Addr:              fmt.Sprintf(":%d", cfg.Port),
 			Handler:           router,
-			ReadHeaderTimeout: ReadHeaderTimeoutValue * time.Second,
+			ReadHeaderTimeout: readHeaderTimeoutValue,
 		},
-		usersHandler: userHandler,
-		cfg:          cfg,
-		tokenHandler: tokenHandler,
+		cfg:            cfg,
+		usersHandler:   userHandler,
+		tokenHandler:   tokenHandler,
+		clothesHandler: clothesHandler,
 	}
 
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
@@ -71,6 +82,8 @@ func New(cfg Config, userHandler usersHandler, tokenHandler tokenHandler) *Serve
 				r.Get("/users/{userId}", s.usersHandler.GetUser)
 				r.Patch("/users/{userId}", s.usersHandler.UpdateUser)
 				r.Delete("/users/{userId}", s.usersHandler.DeleteUser)
+
+				r.Get("/clothes/{clothingId}", s.clothesHandler.GetClothing)
 			})
 		})
 	})

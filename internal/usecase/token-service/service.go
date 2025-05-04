@@ -42,7 +42,7 @@ func New(cfg Config, usersStore usersStore) *Service {
 
 func (s *Service) GenerateAccessToken(user entity.User) (string, error) {
 	claims := jwt.MapClaims{
-		"userId": user.UserID,
+		"userId": user.ID,
 		"phone":  user.Phone,
 		"exp":    time.Now().Add(accessTokenDurationSeconds * time.Second).Unix(),
 	}
@@ -163,7 +163,7 @@ func (s *Service) generateTokens(user entity.User) (entity.Tokens, error) {
 
 func (s *Service) generateRefreshToken(user entity.User) (string, error) {
 	claims := jwt.MapClaims{
-		"userId": user.UserID,
+		"userId": user.ID,
 		"exp":    time.Now().Add(refreshTokenDuration).Unix(),
 	}
 

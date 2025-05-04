@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/gofrs/uuid"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -22,7 +23,6 @@ const (
 type database interface {
 	Exec(ctx context.Context, sq string, arguments ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sq string, arguments ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row
 	GetTXFromContext(ctx context.Context) store.Transaction
 }
 
@@ -37,7 +37,7 @@ func New(db database) *Repo {
 }
 
 func (r *Repo) CreateUnverifiedUser(ctx context.Context, user entity.User, otp string) (entity.User, error) { //nolint:funlen
-	tx := r.db.GetTXFromContext(ctx)
+	db := r.db.GetTXFromContext(ctx)
 
 	var (
 		sb      strings.Builder
@@ -47,7 +47,7 @@ func (r *Repo) CreateUnverifiedUser(ctx context.Context, user entity.User, otp s
 	)
 
 	columns = append(columns, "id")
-	args = append(args, user.UserID)
+	args = append(args, user.ID)
 	values = append(values, fmt.Sprintf("$%d", len(args)))
 
 	columns = append(columns, "otp")
@@ -107,22 +107,7 @@ func (r *Repo) CreateUnverifiedUser(ctx context.Context, user entity.User, otp s
 	sb.WriteString(`)
 RETURNING id, first_name, last_name, nick_name, gender, birth_date, email, email_verified, phone, phone_verified, created_at, updated_at`)
 
-	row := tx.QueryRow(ctx, sb.String(), args...)
-
-	if err := row.Scan(
-		&user.UserID,
-		&user.FirstName,
-		&user.LastName,
-		&user.NickName,
-		&user.Gender,
-		&user.BirthDate,
-		&user.Email,
-		&user.EmailVerified,
-		&user.Phone,
-		&user.PhoneVerified,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	); err != nil {
+	if err := pgxscan.Get(ctx, db, &user, sb.String(), args...); err != nil {
 		var pgErr *pgconn.PgError
 
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -136,7 +121,7 @@ RETURNING id, first_name, last_name, nick_name, gender, birth_date, email, email
 }
 
 func (r *Repo) VerifyUserWithOTP(ctx context.Context, validateUserRequest entity.ValidateUserRequest, otpLifetime time.Duration) (entity.User, error) {
-	tx := r.db.GetTXFromContext(ctx)
+	db := r.db.GetTXFromContext(ctx)
 
 	query := `
 UPDATE users
@@ -147,25 +132,9 @@ WHERE TRUE
 	AND otp_created_at > NOW() - INTERVAL '1 SECOND'*$3
 	RETURNING id, first_name, last_name, nick_name, gender, birth_date, email, email_verified, phone, phone_verified, created_at, updated_at`
 
-	row := tx.QueryRow(ctx, query, validateUserRequest.UserID.String(), validateUserRequest.OTP, otpLifetime.Seconds())
-
 	var user entity.User
 
-	err := row.Scan(
-		&user.UserID,
-		&user.FirstName,
-		&user.LastName,
-		&user.NickName,
-		&user.Gender,
-		&user.BirthDate,
-		&user.Email,
-		&user.EmailVerified,
-		&user.Phone,
-		&user.PhoneVerified,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-	if err != nil {
+	if err := pgxscan.Get(ctx, db, &user, query, validateUserRequest.UserID.String(), validateUserRequest.OTP, otpLifetime.Seconds()); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.User{}, entity.ErrInvalidOTP
 		}
@@ -177,6 +146,8 @@ WHERE TRUE
 }
 
 func (r *Repo) GetUser(ctx context.Context, userID entity.UserID) (entity.User, error) {
+	db := r.db.GetTXFromContext(ctx)
+
 	var user entity.User
 
 	query := `
@@ -186,29 +157,7 @@ WHERE TRUE
 	AND id = $1
 	AND deleted_at IS NULL`
 
-	var db store.Transaction
-
-	db = r.db.GetTXFromContext(ctx)
-
-	if db == nil {
-		db = r.db
-	}
-
-	err := db.QueryRow(ctx, query, userID).Scan(
-		&user.UserID,
-		&user.FirstName,
-		&user.LastName,
-		&user.NickName,
-		&user.Gender,
-		&user.BirthDate,
-		&user.Email,
-		&user.EmailVerified,
-		&user.Phone,
-		&user.PhoneVerified,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-	if err != nil {
+	if err := pgxscan.Get(ctx, db, &user, query, userID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.User{}, entity.ErrUserNotFound
 		}
@@ -220,7 +169,7 @@ WHERE TRUE
 }
 
 func (r *Repo) UpdateUser(ctx context.Context, userID entity.UserID, updatedUser entity.UserUpdate) (entity.User, error) { //nolint:funlen
-	tx := r.db.GetTXFromContext(ctx)
+	db := r.db.GetTXFromContext(ctx)
 
 	var (
 		sb     strings.Builder
@@ -300,25 +249,9 @@ func (r *Repo) UpdateUser(ctx context.Context, userID entity.UserID, updatedUser
 
 	sb.WriteString(" RETURNING id, first_name, last_name, nick_name, gender, birth_date, email, email_verified, phone, phone_verified, created_at, updated_at")
 
-	row := tx.QueryRow(ctx, sb.String(), params...)
-
 	var user entity.User
 
-	err := row.Scan(
-		&user.UserID,
-		&user.FirstName,
-		&user.LastName,
-		&user.NickName,
-		&user.Gender,
-		&user.BirthDate,
-		&user.Email,
-		&user.EmailVerified,
-		&user.Phone,
-		&user.PhoneVerified,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-	if err != nil {
+	if err := pgxscan.Get(ctx, db, &user, sb.String(), params...); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.User{}, entity.ErrUserNotFound
 		}

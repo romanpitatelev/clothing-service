@@ -19,7 +19,7 @@ func (s *IntegrationTestSuite) TestJWT() {
 	s.Require().NoError(err)
 
 	user := entity.User{
-		UserID:        entity.UserID(userID),
+		ID:            entity.UserID(userID),
 		FirstName:     utils.Pointer("John"),
 		LastName:      utils.Pointer("Ivanov"),
 		BirthDate:     utils.Pointer(time.Now()),
@@ -33,7 +33,7 @@ func (s *IntegrationTestSuite) TestJWT() {
 	var tokens entity.Tokens
 
 	s.Run("refresh token invalid token", func() {
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/refresh", http.StatusUnauthorized, tokens, nil, user)
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/refresh", http.StatusUnauthorized, tokens, nil, user)
 	})
 
 	tokens.RefreshToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJcIjE0M2Y3M2NhLTA5M2YtNDdmNi1iMzcyLTNlZGNhYzAyNTFiOFwiIiwiZW1haWwiOiIiLCJwaG9uZSI6IiIsImV4cCI6MTc0NjIyMTU0NCwiaWF0IjoxNzQ2MzA3OTQ0fQ.WqSV7qz0AtZ1KwkQLtwsATvIAvUjNGDo_JRt1faqvrtDZ6TO39RdEzJWAhl0qmhrAqoM3bQeaB1vxSfv9EMGvmWJMo5KP0DrSpxRBL0KsycEL3EnK5ov81iDFq3txXdn8my5iShYQAOdASdDZ-IGRMxuGVKRjheJf3bMdyTrvtr6jopKWd1rEPlDDcEUuaXrIjIhyNSLwlT4P_LG3g1KHqeC_ZLNZC8Zqo31t0jelS35klTFx8DypHqUqxSFDuLBG6KqiB7h1jlNaonE_i7znkzWOofEouXYQqKrHoaaZYkhyZqGh1A_5YQW4XiRIbKmH7-TKHTAQtaN1s7jnTxQ1w" //nolint:lll
@@ -51,7 +51,7 @@ func (s *IntegrationTestSuite) TestJWT() {
 	var newTokens entity.Tokens
 
 	s.Run("refresh token", func() {
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/refresh", http.StatusOK, tokens, &newTokens, user)
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/refresh", http.StatusOK, tokens, &newTokens, user)
 		s.Require().NotEqual(tokens.RefreshToken, newTokens.RefreshToken)
 	})
 }

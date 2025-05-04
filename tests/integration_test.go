@@ -13,12 +13,15 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
+	clotheshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/clothes-handler"
 	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
+	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/clothes-repo"
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
+	clothesservice "github.com/romanpitatelev/clothing-service/internal/usecase/clothes-service"
 	"github.com/romanpitatelev/clothing-service/internal/usecase/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
@@ -27,27 +30,27 @@ import (
 )
 
 const (
-	pgDSN               = "postgresql://postgres:my_pass@localhost:5432/clothing_db"
-	port                = 5003
-	userPath            = "/api/v1/users"
-	email               = "rpitatelev@gmail.com"
-	sender              = "clothing-service"
-	codeLength          = 4
-	accessTokenDuration = 3 * time.Minute
+	pgDSN       = "postgresql://postgres:my_pass@localhost:5432/clothing_db"
+	port        = 5003
+	userPath    = "/api/v1/users"
+	clothesPath = "/api/v1/clothes"
 )
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	cancelFunc   context.CancelFunc
-	db           *store.DataStore
-	usersRepo    *usersrepo.Repo
-	tokenService *tokenservice.Service
-	usersService *usersservice.Service
-	iamHandler   *iamhandler.Handler
-	usersHandler *usershandler.Handler
-	server       *rest.Server
-	smsRepo      *smsregistrationrepo.SMSService
-	smsChan      chan otpResp
+	cancelFunc     context.CancelFunc
+	db             *store.DataStore
+	usersRepo      *usersrepo.Repo
+	clothesRepo    *clothesrepo.Repo
+	tokenService   *tokenservice.Service
+	usersService   *usersservice.Service
+	clothesService *clothesservice.Service
+	iamHandler     *iamhandler.Handler
+	usersHandler   *usershandler.Handler
+	clothesHandler *clotheshandler.Handler
+	server         *rest.Server
+	smsRepo        *smsregistrationrepo.SMSService
+	smsChan        chan otpResp
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
@@ -73,6 +76,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 
 	publicKey := &privateKey.PublicKey
 	s.usersRepo = usersrepo.New(s.db)
+	s.clothesRepo = clothesrepo.New(s.db)
 	s.smsRepo = smsregistrationrepo.New(smsregistrationrepo.Config{
 		Host:   "localhost:" + strconv.Itoa(port+1),
 		Schema: "http",
@@ -89,11 +93,13 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.usersService = usersservice.New(usersservice.Config{
 		OTPMaxValue: 9999,
 	}, s.usersRepo, s.smsRepo)
+	s.clothesService = clothesservice.New(s.clothesRepo)
 
 	s.usersHandler = usershandler.New(s.usersService)
 	s.iamHandler = iamhandler.New(s.tokenService)
+	s.clothesHandler = clotheshandler.New(s.clothesService)
 
-	s.server = rest.New(rest.Config{Port: port}, s.usersHandler, s.iamHandler)
+	s.server = rest.New(rest.Config{Port: port}, s.usersHandler, s.iamHandler, s.clothesHandler)
 
 	log.Info().Msg("sms client is ready")
 
@@ -116,7 +122,7 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 }
 
 func (s *IntegrationTestSuite) TearDownTest() {
-	err := s.db.Truncate(context.Background(), "users")
+	err := s.db.Truncate(context.Background(), "users", "clothes")
 	s.Require().NoError(err)
 }
 
@@ -175,7 +181,7 @@ func (s *IntegrationTestSuite) sendRequest(method, path string, status int, enti
 
 func (s *IntegrationTestSuite) getToken(user entity.User) string {
 	claims := entity.Claims{
-		UserID: user.UserID,
+		UserID: user.ID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

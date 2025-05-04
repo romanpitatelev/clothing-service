@@ -102,7 +102,7 @@ func (d *DataStore) UpsertUser(ctx context.Context, user entity.User) error {
 INSERT INTO users (id, first_name, last_name, nick_name, birth_date, phone, phone_verified)
 VALUES ($1, $2, $3, $2, $4, $5, $6)`
 
-	_, err := d.pool.Exec(ctx, query, user.UserID, user.FirstName, user.LastName, user.BirthDate, user.Phone, user.PhoneVerified)
+	_, err := d.pool.Exec(ctx, query, user.ID, user.FirstName, user.LastName, user.BirthDate, user.Phone, user.PhoneVerified)
 	if err != nil {
 		return fmt.Errorf("failed to upsert user: %w", err)
 	}
@@ -136,10 +136,6 @@ func (d *DataStore) Query(ctx context.Context, sql string, arguments ...any) (pg
 	}
 
 	return res, nil
-}
-
-func (d *DataStore) QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row {
-	return d.pool.QueryRow(ctx, sql, arguments...)
 }
 
 type Transaction interface {

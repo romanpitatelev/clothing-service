@@ -1,4 +1,4 @@
-version : "2"
+version: "2"
 
 linters:
   default: all
@@ -26,12 +26,17 @@ linters:
     whitespace:
       multi-if: false
       multi-func: true
+    tagliatelle:
+      case:
+        rules:
+          json: camel
+          db: snake
   exclusions:
     rules:
       - path: tests/.*
         linters:
           - funlen
-  
+
 formatters:
   enable:
     - gci

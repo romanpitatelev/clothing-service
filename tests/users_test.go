@@ -59,7 +59,7 @@ func (s *IntegrationTestSuite) TestValidateLoginUser() {
 
 		var tokens entity.Tokens
 
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/otp", http.StatusOK, req, &tokens, entity.User{})
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/otp", http.StatusOK, req, &tokens, entity.User{})
 
 		s.Require().NotEmpty(tokens.AccessToken)
 		s.Require().NotEmpty(tokens.RefreshToken)
@@ -67,14 +67,14 @@ func (s *IntegrationTestSuite) TestValidateLoginUser() {
 	})
 
 	s.Run("login successfully", func() {
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/login", http.StatusOK, nil, nil, entity.User{})
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/login", http.StatusOK, nil, nil, entity.User{})
 
 		resp := <-s.smsChan
 		req.OTP = resp.otp
 
 		var tokens entity.Tokens
 
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/otp", http.StatusOK, req, &tokens, entity.User{})
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/otp", http.StatusOK, req, &tokens, entity.User{})
 
 		s.Require().NotEmpty(tokens.AccessToken)
 		s.Require().NotEmpty(tokens.RefreshToken)
@@ -86,16 +86,16 @@ func (s *IntegrationTestSuite) TestValidateLoginUser() {
 	})
 
 	s.Run("failed validation with incorrect otp", func() {
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/login", http.StatusOK, nil, nil, entity.User{})
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/login", http.StatusOK, nil, nil, entity.User{})
 
 		resp := <-s.smsChan
 		req.OTP = resp.otp + "1"
 
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/otp", http.StatusForbidden, req, nil, entity.User{})
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/otp", http.StatusForbidden, req, nil, entity.User{})
 	})
 
 	s.Run("failed validation with correct otp after expiration", func() {
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/login", http.StatusOK, nil, nil, entity.User{})
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/login", http.StatusOK, nil, nil, entity.User{})
 
 		resp := <-s.smsChan
 		req.OTP = resp.otp
@@ -103,13 +103,13 @@ func (s *IntegrationTestSuite) TestValidateLoginUser() {
 		_, err := s.db.Exec(s.T().Context(), `UPDATE users SET otp_created_at = otp_created_at - INTERVAL '1 DAY'`)
 		s.Require().NoError(err)
 
-		s.sendRequest(http.MethodPost, userPath+"/"+user.UserID.String()+"/otp", http.StatusForbidden, req, nil, entity.User{})
+		s.sendRequest(http.MethodPost, userPath+"/"+user.ID.String()+"/otp", http.StatusForbidden, req, nil, entity.User{})
 	})
 }
 
 func (s *IntegrationTestSuite) TestGetUpdateDeleteUser() {
 	user := entity.User{
-		UserID:        entity.UserID(uuid.New()),
+		ID:            entity.UserID(uuid.New()),
 		FirstName:     utils.Pointer("John"),
 		LastName:      utils.Pointer("Ivanov"),
 		BirthDate:     utils.Pointer(time.Now()),
@@ -129,10 +129,10 @@ func (s *IntegrationTestSuite) TestGetUpdateDeleteUser() {
 	var newUser entity.User
 
 	s.Run("get user successfully", func() {
-		userIDPath := userPath + "/" + user.UserID.String()
+		userIDPath := userPath + "/" + user.ID.String()
 
 		s.sendRequest(http.MethodGet, userIDPath, http.StatusOK, nil, &newUser, entity.User{})
-		s.Require().Equal(user.UserID, newUser.UserID)
+		s.Require().Equal(user.ID, newUser.ID)
 		s.Require().Equal(user.FirstName, newUser.FirstName)
 		s.Require().Equal(user.LastName, newUser.LastName)
 		s.Require().Equal(user.Phone, newUser.Phone)
@@ -144,7 +144,7 @@ func (s *IntegrationTestSuite) TestGetUpdateDeleteUser() {
 	})
 
 	user2 := entity.User{
-		UserID:        entity.UserID(uuid.New()),
+		ID:            entity.UserID(uuid.New()),
 		FirstName:     utils.Pointer("John"),
 		LastName:      utils.Pointer("Ivanov"),
 		BirthDate:     utils.Pointer(time.Now()),
@@ -163,7 +163,7 @@ func (s *IntegrationTestSuite) TestGetUpdateDeleteUser() {
 	}
 
 	s.Run("update conflict contact", func() {
-		s.sendRequest(http.MethodPatch, userPath+"/"+user2.UserID.String(), http.StatusConflict, updateUser, nil, entity.User{})
+		s.sendRequest(http.MethodPatch, userPath+"/"+user2.ID.String(), http.StatusConflict, updateUser, nil, entity.User{})
 	})
 
 	var updatedUser entity.User
@@ -171,8 +171,8 @@ func (s *IntegrationTestSuite) TestGetUpdateDeleteUser() {
 	updateUser.Phone = nil
 
 	s.Run("update user successfully", func() {
-		s.sendRequest(http.MethodPatch, userPath+"/"+user2.UserID.String(), http.StatusOK, updateUser, &updatedUser, entity.User{})
-		s.Require().Equal(user2.UserID, updatedUser.UserID)
+		s.sendRequest(http.MethodPatch, userPath+"/"+user2.ID.String(), http.StatusOK, updateUser, &updatedUser, entity.User{})
+		s.Require().Equal(user2.ID, updatedUser.ID)
 		s.Require().Equal(*updateUser.FirstName, *updatedUser.FirstName)
 		s.Require().Equal(*updateUser.LastName, *updatedUser.LastName)
 	})
@@ -182,11 +182,11 @@ func (s *IntegrationTestSuite) TestGetUpdateDeleteUser() {
 	})
 
 	s.Run("delete non existent", func() {
-		s.sendRequest(http.MethodDelete, userPath+"/"+user.UserID.String(), http.StatusNoContent, nil, nil, entity.User{})
+		s.sendRequest(http.MethodDelete, userPath+"/"+user.ID.String(), http.StatusNoContent, nil, nil, entity.User{})
 	})
 
 	s.Run("change phone for existing user to the value belonging to the deleted one", func() {
 		updateUser.Phone = &user.Phone
-		s.sendRequest(http.MethodPatch, userPath+"/"+user2.UserID.String(), http.StatusOK, updateUser, nil, entity.User{})
+		s.sendRequest(http.MethodPatch, userPath+"/"+user2.ID.String(), http.StatusOK, updateUser, nil, entity.User{})
 	})
 }
