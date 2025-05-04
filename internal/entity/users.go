@@ -148,3 +148,11 @@ type UserID uuid.UUID
 func (u UserID) String() string {
 	return uuid.UUID(u).String()
 }
+
+func (u *UserID) UnmarshalText(data []byte) error {
+	return (*uuid.UUID)(u).UnmarshalText(data)
+}
+
+func (u UserID) MarshalText() ([]byte, error) {
+	return uuid.UUID(u).MarshalText()
+}

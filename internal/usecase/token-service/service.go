@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -72,10 +71,10 @@ func (s *Service) ParseRefreshToken(tokens entity.Tokens) (entity.UserID, error)
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		userIDStr, ok := claims["userId"].(string)
 		if !ok {
-			return entity.UserID(uuid.Nil), fmt.Errorf("invalid user ID token: %w", err)
+			return entity.UserID(uuid.Nil), fmt.Errorf("%w: userId is %v instead of string", err, claims["userId"])
 		}
 
-		userID, err := uuid.FromString(strings.Trim(userIDStr, "\""))
+		userID, err := uuid.FromString(userIDStr)
 		if err != nil {
 			return entity.UserID(uuid.Nil), entity.ErrInvalidUserIDFormat
 		}
@@ -164,7 +163,7 @@ func (s *Service) generateTokens(user entity.User) (entity.Tokens, error) {
 func (s *Service) generateRefreshToken(user entity.User) (string, error) {
 	claims := jwt.MapClaims{
 		"userId": user.ID,
-		"exp":    time.Now().Add(refreshTokenDuration).Unix(),
+		"exp":    time.Now().Add(1000 * refreshTokenDuration).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)

@@ -9,20 +9,23 @@ import (
 	"github.com/romanpitatelev/clothing-service/internal/configs"
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
 	clotheshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/clothes-handler"
+	fileshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/files-handler"
 	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/clothes-repo"
+	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/files-repo"
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
 	clothesservice "github.com/romanpitatelev/clothing-service/internal/usecase/clothes-service"
+	filesservice "github.com/romanpitatelev/clothing-service/internal/usecase/files-service"
 	"github.com/romanpitatelev/clothing-service/internal/usecase/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
 )
 
-func Run(cfg *configs.Config) error {
+func Run(cfg *configs.Config) error { //nolint:funlen
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -39,6 +42,18 @@ func Run(cfg *configs.Config) error {
 
 	usersRepo := usersrepo.New(db)
 	clothesRepo := clothesrepo.New(db)
+
+	filesRepo, err := filesrepo.New(filesrepo.S3Config{
+		Address: cfg.S3Address,
+		Bucket:  cfg.S3Bucket,
+		Access:  cfg.S3Access,
+		Secret:  cfg.S3Secret,
+		Region:  cfg.S3Region,
+	})
+	if err != nil {
+		log.Panic().Err(err).Msg("failed to connect to files-repo")
+	}
+
 	smsClient := smsregistrationrepo.New(smsregistrationrepo.Config{
 		Schema:   cfg.SMSAPISchema,
 		Host:     cfg.SMSAPIHost,
@@ -57,16 +72,19 @@ func Run(cfg *configs.Config) error {
 		OTPMaxValue: cfg.OTPMaxValue,
 	}, usersRepo, smsClient)
 	clothesService := clothesservice.New(clothesRepo)
+	filesService := filesservice.New(filesRepo)
 
 	usersHandler := usershandler.New(usersService)
 	iamHandler := iamhandler.New(tokenService)
 	clothesHandler := clotheshandler.New(clothesService)
+	filesHandler := fileshandler.New(filesService)
 
 	server := rest.New(
 		rest.Config{Port: cfg.AppPort},
 		usersHandler,
 		iamHandler,
 		clothesHandler,
+		filesHandler,
 	)
 
 	if err := server.Run(ctx); err != nil {

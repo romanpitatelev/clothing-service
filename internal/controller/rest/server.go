@@ -40,12 +40,17 @@ type clothesHandler interface {
 	GetClothing(w http.ResponseWriter, r *http.Request)
 }
 
+type imagesHandler interface {
+	GetImage(w http.ResponseWriter, r *http.Request)
+}
+
 type Server struct {
 	cfg            Config
 	server         *http.Server
 	usersHandler   usersHandler
 	tokenHandler   tokenHandler
 	clothesHandler clothesHandler
+	imagesHandler  imagesHandler
 }
 
 func New(
@@ -53,6 +58,7 @@ func New(
 	userHandler usersHandler,
 	tokenHandler tokenHandler,
 	clothesHandler clothesHandler,
+	imagesHandler imagesHandler,
 ) *Server { //nolint:whitespace
 	router := chi.NewRouter()
 	s := &Server{
@@ -65,6 +71,7 @@ func New(
 		usersHandler:   userHandler,
 		tokenHandler:   tokenHandler,
 		clothesHandler: clothesHandler,
+		imagesHandler:  imagesHandler,
 	}
 
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
@@ -84,6 +91,8 @@ func New(
 				r.Delete("/users/{userId}", s.usersHandler.DeleteUser)
 
 				r.Get("/clothes/{clothingId}", s.clothesHandler.GetClothing)
+
+				r.Get("/images/{imageName}", s.imagesHandler.GetImage)
 			})
 		})
 	})

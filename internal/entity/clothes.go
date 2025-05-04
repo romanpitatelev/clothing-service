@@ -11,8 +11,16 @@ var ErrClothingNotFound = errors.New("clothing not found")
 
 type ClothingID uuid.UUID
 
-func (u ClothingID) String() string {
-	return uuid.UUID(u).String()
+func (c ClothingID) String() string {
+	return uuid.UUID(c).String()
+}
+
+func (c *ClothingID) UnmarshalText(data []byte) error {
+	return (*uuid.UUID)(c).UnmarshalText(data)
+}
+
+func (c ClothingID) MarshalText() ([]byte, error) {
+	return uuid.UUID(c).MarshalText()
 }
 
 type RelatedProduct struct {

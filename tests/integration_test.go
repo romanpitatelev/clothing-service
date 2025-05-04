@@ -8,20 +8,24 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
 	clotheshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/clothes-handler"
+	fileshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/files-handler"
 	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/clothes-repo"
+	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/files-repo"
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
 	clothesservice "github.com/romanpitatelev/clothing-service/internal/usecase/clothes-service"
+	filesservice "github.com/romanpitatelev/clothing-service/internal/usecase/files-service"
 	"github.com/romanpitatelev/clothing-service/internal/usecase/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
 	"github.com/rs/zerolog/log"
@@ -34,6 +38,7 @@ const (
 	port        = 5003
 	userPath    = "/api/v1/users"
 	clothesPath = "/api/v1/clothes"
+	imagesPath  = "/api/v1/images"
 )
 
 type IntegrationTestSuite struct {
@@ -42,14 +47,17 @@ type IntegrationTestSuite struct {
 	db             *store.DataStore
 	usersRepo      *usersrepo.Repo
 	clothesRepo    *clothesrepo.Repo
+	filesRepo      *filesrepo.S3
+	smsRepo        *smsregistrationrepo.SMSService
 	tokenService   *tokenservice.Service
 	usersService   *usersservice.Service
 	clothesService *clothesservice.Service
+	filesService   *filesservice.Service
 	iamHandler     *iamhandler.Handler
 	usersHandler   *usershandler.Handler
 	clothesHandler *clotheshandler.Handler
+	filesHandler   *fileshandler.Handler
 	server         *rest.Server
-	smsRepo        *smsregistrationrepo.SMSService
 	smsChan        chan otpResp
 }
 
@@ -75,14 +83,21 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 
 	publicKey := &privateKey.PublicKey
-	s.usersRepo = usersrepo.New(s.db)
-	s.clothesRepo = clothesrepo.New(s.db)
 	s.smsRepo = smsregistrationrepo.New(smsregistrationrepo.Config{
 		Host:   "localhost:" + strconv.Itoa(port+1),
 		Schema: "http",
 		Email:  "biba",
 		ApiKey: "boba",
 		Sender: "pasha",
+	})
+	s.usersRepo = usersrepo.New(s.db)
+	s.clothesRepo = clothesrepo.New(s.db)
+	s.filesRepo, err = filesrepo.New(filesrepo.S3Config{
+		Address: "http://localhost:9000",
+		Bucket:  "test.bucket",
+		Access:  "access",
+		Secret:  "truesecret",
+		Region:  "us-east-1",
 	})
 
 	s.tokenService = tokenservice.New(tokenservice.Config{
@@ -94,12 +109,14 @@ func (s *IntegrationTestSuite) SetupSuite() {
 		OTPMaxValue: 9999,
 	}, s.usersRepo, s.smsRepo)
 	s.clothesService = clothesservice.New(s.clothesRepo)
+	s.filesService = filesservice.New(s.filesRepo)
 
 	s.usersHandler = usershandler.New(s.usersService)
 	s.iamHandler = iamhandler.New(s.tokenService)
 	s.clothesHandler = clotheshandler.New(s.clothesService)
+	s.filesHandler = fileshandler.New(s.filesService)
 
-	s.server = rest.New(rest.Config{Port: port}, s.usersHandler, s.iamHandler, s.clothesHandler)
+	s.server = rest.New(rest.Config{Port: port}, s.usersHandler, s.iamHandler, s.clothesHandler, s.filesHandler)
 
 	log.Info().Msg("sms client is ready")
 
@@ -177,6 +194,37 @@ func (s *IntegrationTestSuite) sendRequest(method, path string, status int, enti
 
 	err = json.NewDecoder(response.Body).Decode(result)
 	s.Require().NoError(err)
+}
+
+func (s *IntegrationTestSuite) getFile(method, path string, status int, entity any, user entity.User) ([]byte, string, string) {
+	body, err := json.Marshal(entity)
+	s.Require().NoError(err)
+
+	req, err := http.NewRequestWithContext(context.Background(), method,
+		fmt.Sprintf("http://localhost:%d%s", port, path), bytes.NewReader(body))
+	s.Require().NoError(err)
+
+	token := s.getToken(user)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := http.Client{}
+
+	resp, err := client.Do(req)
+	s.Require().NoError(err)
+
+	defer func() {
+		err = resp.Body.Close()
+		s.Require().NoError(err)
+	}()
+
+	s.Require().Equal(status, resp.StatusCode)
+
+	respBody, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err)
+
+	slice := strings.SplitN(resp.Header.Get("Content-Disposition"), "=", 2)
+
+	return respBody, resp.Header.Get("Content-Type"), slice[len(slice)-1]
 }
 
 func (s *IntegrationTestSuite) getToken(user entity.User) string {

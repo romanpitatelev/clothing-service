@@ -15,7 +15,7 @@ import (
 )
 
 func (s *IntegrationTestSuite) TestJWT() {
-	userID, err := uuid.Parse("143f73ca-093f-47f6-b372-3edcac0251b8")
+	userID, err := uuid.Parse("5131f6fe-1447-4945-a637-5b33a233e47e")
 	s.Require().NoError(err)
 
 	user := entity.User{
@@ -42,7 +42,7 @@ func (s *IntegrationTestSuite) TestJWT() {
 		s.sendRequest(http.MethodPost, userPath+"/"+uuid.NewString()+"/refresh", http.StatusUnauthorized, tokens, nil, user)
 	})
 
-	tokens.RefreshToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJcIjE0M2Y3M2NhLTA5M2YtNDdmNi1iMzcyLTNlZGNhYzAyNTFiOFwiIiwiZW1haWwiOiIiLCJwaG9uZSI6IiIsImV4cCI6MTc0NjM5MzU4MiwiaWF0IjoxNzQ2MzA3MTgyfQ.RD_rVym4t_1P5lGksZQ5LcYAkL01AuiOBmjWAFyEFQxMy8_HlWgvqXy3u2JXPTqWbfVUOIER1covti8ccASZ21E2Eh0XsnKCYZ_QIvvBmPzh3o-AgRs7YpMU6borEQvZHlYmRP0GuZw_fqlVTjOhDcJTcSh_XQKrBtcN-la2Wh-6fjL4MEVO8pPtKe8tzkaLAz11D2CzxoJpf8nQQq0J7jz5EvrvqGZvoWr_8n6Pu0OIKuJvxqsqCsW48seatfeJn1qSqu6DMfFf0rk-TaYMAxSeeuskxCpzIl9y-Dy6KjLxz_wWMnqqVL4k2yjHuG49fgD33i9mNwRRWdXv9x6zEA" //nolint:lll
+	tokens.RefreshToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjQzMzg1NTY0NDAsInVzZXJJZCI6IjUxMzFmNmZlLTE0NDctNDk0NS1hNjM3LTViMzNhMjMzZTQ3ZSJ9.DXBNDdeFHpRxZ9u0ZvvKQXf3LcjzT_dduQHCqxVY-IIoIFBAASAcL13FGJgv8jW1g3tcoOsno40sWyFCcpBsngRzAt8HDiiiPbz8MVSSvCcfNe8jsupaV5DnxPKyzPd9jexdOrswD8b_UVU75zrFhU4sgnU0fTXHWj0FA6KmmNLyVPf1oWz4hHlRb42iAruZv4782hcaDe5khu3ZVHO5gO9Qzj42EyGEbm5Hk03v8_cEgUcHn9APQtPCaE6iH9TY-yD6TuH1w0CAZl8qElJSbvTLvVXKTOeufmSi5u_35DUT6R724zdn2ZD8bXwzZfF7HgzW1NlOGH_3TDDZW0rrVQ" //nolint:lll
 
 	s.Run("refresh token for non existent user", func() {
 		s.sendRequest(http.MethodPost, userPath+"/"+uuid.NewString()+"/refresh", http.StatusOK, tokens, nil, user)
