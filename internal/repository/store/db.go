@@ -99,10 +99,10 @@ func (d *DataStore) Migrate(direction migrate.MigrationDirection) error {
 
 func (d *DataStore) UpsertUser(ctx context.Context, user entity.User) error {
 	query := `
-INSERT INTO users (id, first_name, last_name, age, is_verified)
-VALUES ($1, $2, $3, $4, $5)`
+INSERT INTO users (id, first_name, last_name, nick_name, birth_date, phone, phone_verified)
+VALUES ($1, $2, $3, $2, $4, $5, $6)`
 
-	_, err := d.pool.Exec(ctx, query, user.UserID, user.FirstName, user.LastName, user.Age, user.IsVerified)
+	_, err := d.pool.Exec(ctx, query, user.UserID, user.FirstName, user.LastName, user.BirthDate, user.Phone, user.PhoneVerified)
 	if err != nil {
 		return fmt.Errorf("failed to upsert user: %w", err)
 	}

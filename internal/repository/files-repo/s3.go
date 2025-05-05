@@ -86,7 +86,7 @@ func (s *S3) DownloadFile(fileName string) (io.ReadCloser, string, error) {
 
 	switch {
 	case err == nil:
-	case errors.As(err, &responseError) && responseError.ResponseError.HTTPStatusCode() == http.StatusNotFound:
+	case errors.As(err, &responseError) && responseError.HTTPStatusCode() == http.StatusNotFound:
 		return nil, "", entity.ErrFileNotFound
 	default:
 		return nil, "", fmt.Errorf("failed to download file: %w", err)

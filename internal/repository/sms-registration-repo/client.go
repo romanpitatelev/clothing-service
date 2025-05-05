@@ -6,12 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
+	"net/url"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )
 
 var ErrSMSSendingFailed = errors.New("sms sending failed")
+
+type Config struct {
+	Host     string
+	Schema   string
+	Email    string
+	ApiKey   string
+	Sender   string
+	TestMode bool
+}
 
 type SMSService struct {
 	cfg Config
@@ -23,20 +33,52 @@ func New(cfg Config) *SMSService {
 	}
 }
 
+type Response struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Id           int     `json:"id"`
+		From         string  `json:"from"`
+		Number       string  `json:"number"`
+		Text         string  `json:"text"`
+		Status       int     `json:"status"`
+		ExtendStatus string  `json:"extendStatus"`
+		Channel      string  `json:"channel"`
+		Cost         float64 `json:"cost"`
+		DateCreated  string  `json:"dateCreated"`
+		DateSend     int     `json:"dateSend"`
+	} `json:"data"`
+	Message string `json:"message"`
+}
+
 func (s *SMSService) SendOTP(ctx context.Context, phone string, otp string) error {
-	message := "Your verification code: " + otp
+	data := url.Values{}
+	data.Set("number", phone)
+	data.Set("sign", s.cfg.Sender)
+	data.Set("text", EnrichOTP(otp))
+
+	endpoint := "send"
+	if s.cfg.TestMode {
+		endpoint = "testsend"
+	}
+
+	smsURL := url.URL{
+		Scheme:   s.cfg.Schema,
+		Host:     s.cfg.Host,
+		Path:     "/v2/sms/" + endpoint,
+		RawQuery: data.Encode(),
+	}
 
 	request, err := http.NewRequestWithContext(
 		ctx,
-		http.MethodPost,
-		fmt.Sprintf("https://%s:%s@gate.smsaero.ru/v2/sms/send?number=%s&text=%s&sign=%s", s.cfg.Email, s.cfg.ApiKey, phone, message, s.cfg.Sender),
+		http.MethodGet,
+		smsURL.String(),
 		nil,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	request.Header.Set("Content-Type", "application/json")
+	request.SetBasicAuth(s.cfg.Email, s.cfg.ApiKey)
 
 	client := &http.Client{}
 
@@ -55,22 +97,7 @@ func (s *SMSService) SendOTP(ctx context.Context, phone string, otp string) erro
 		return fmt.Errorf("%w with status: %s", ErrSMSSendingFailed, resp.Status)
 	}
 
-	var response struct {
-		Success bool `json:"success"`
-		Data    []struct {
-			Id           int       `json:"id"`
-			From         string    `json:"from"`
-			Number       string    `json:"number"`
-			Text         string    `json:"text"`
-			Status       int       `json:"status"`
-			ExtendStatus string    `json:"extendStatus"`
-			Channel      string    `json:"channel"`
-			Cost         float64   `json:"cost"`
-			DateCreated  time.Time `json:"dateCreated"`
-			DateSend     time.Time `json:"dateSend"`
-		} `json:"data"`
-		Message string `json:"message"`
-	}
+	var response Response
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
@@ -81,4 +108,17 @@ func (s *SMSService) SendOTP(ctx context.Context, phone string, otp string) erro
 	}
 
 	return nil
+}
+
+func EnrichOTP(otp string) string {
+	return "Код верификации: " + otp
+}
+
+func ExtractOTP(val string) string {
+	items := strings.Split(val, ": ")
+	if len(items) < 2 { //nolint:mnd
+		return ""
+	}
+
+	return items[1]
 }
