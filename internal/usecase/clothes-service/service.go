@@ -7,25 +7,25 @@ import (
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 )
 
-type clothesStore interface {
-	GetClothing(ctx context.Context, id entity.ClothingID) (entity.Clothing, error)
+type productsStore interface {
+	GetClothing(ctx context.Context, id entity.VariantID) (entity.Variant, error)
 }
 
 type Service struct {
-	clothesStore clothesStore
+	productsStore productsStore
 }
 
-func New(clothesStore clothesStore) *Service {
+func New(productsStore productsStore) *Service {
 	return &Service{
-		clothesStore: clothesStore,
+		productsStore: productsStore,
 	}
 }
 
-func (s *Service) GetClothing(ctx context.Context, id entity.ClothingID) (entity.Clothing, error) {
-	clothing, err := s.clothesStore.GetClothing(ctx, id)
+func (s *Service) GetVariant(ctx context.Context, id entity.VariantID) (entity.Variant, error) {
+	variant, err := s.productsStore.GetClothing(ctx, id)
 	if err != nil {
-		return entity.Clothing{}, fmt.Errorf("GetClothing %w", err)
+		return entity.Variant{}, fmt.Errorf("GetVariant %w", err)
 	}
 
-	return clothing, nil
+	return variant, nil
 }

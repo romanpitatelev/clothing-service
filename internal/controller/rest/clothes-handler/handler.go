@@ -10,17 +10,17 @@ import (
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 )
 
-type clothesService interface {
-	GetClothing(ctx context.Context, id entity.ClothingID) (entity.Clothing, error)
+type productsService interface {
+	GetVariant(ctx context.Context, id entity.VariantID) (entity.Variant, error)
 }
 
 type Handler struct {
-	clothingService clothesService
+	productsService productsService
 }
 
-func New(clothingService clothesService) *Handler {
+func New(productsService productsService) *Handler {
 	return &Handler{
-		clothingService: clothingService,
+		productsService: productsService,
 	}
 }
 
@@ -32,7 +32,7 @@ func (s *Handler) GetClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clothing, err := s.clothingService.GetClothing(r.Context(), entity.ClothingID(clothingID))
+	clothing, err := s.productsService.GetVariant(r.Context(), entity.VariantID(clothingID))
 	if err != nil {
 		common.ErrorResponse(w, "error getting clothing", err)
 

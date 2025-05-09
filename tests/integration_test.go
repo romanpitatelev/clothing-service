@@ -19,8 +19,8 @@ import (
 	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
-	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/clothes-repo"
-	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/files-repo"
+	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/objects-repo"
+	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/products-repo"
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
@@ -108,7 +108,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.usersService = usersservice.New(usersservice.Config{
 		OTPMaxValue: 9999,
 	}, s.usersRepo, s.smsRepo)
-	s.clothesService = clothesservice.New(s.clothesRepo)
+	// s.clothesService = clothesservice.New(s.clothesRepo)
 	s.filesService = filesservice.New(s.filesRepo)
 
 	s.usersHandler = usershandler.New(s.usersService)
@@ -139,7 +139,7 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 }
 
 func (s *IntegrationTestSuite) TearDownTest() {
-	err := s.db.Truncate(context.Background(), "users", "clothes")
+	err := s.db.Truncate(context.Background(), "users", "variants", "products", "brands")
 	s.Require().NoError(err)
 }
 

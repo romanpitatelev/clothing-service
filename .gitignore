@@ -6,3 +6,4 @@ bin/
 coverage*
 .vscode
 private_key.pem
+.run

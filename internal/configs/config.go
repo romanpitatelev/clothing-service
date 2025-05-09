@@ -14,7 +14,7 @@ import (
 
 const (
 	JWTPrivateKeyPath = "./private_key.pem"
-	JWTPublicKeyPath  = "./internal/config/public_key.pem"
+	JWTPublicKeyPath  = "./internal/configs/public_key.pem"
 )
 
 type Config struct {
