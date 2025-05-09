@@ -8,7 +8,7 @@ RUN go build -o clothing-service ./cmd/clothing-service/main.go
 
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/clothing-service .
+COPY --from=builder /app/variant-service .
 
 EXPOSE 8081
 CMD ["./clothing-service"]

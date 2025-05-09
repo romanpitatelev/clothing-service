@@ -27,3 +27,10 @@ test: up
 	which gocover-cobertura || go install github.com/t-yuki/gocover-cobertura@latest
 	gocover-cobertura < coverage.txt > coverage.xml
 
+.PHONY: build
+build:
+	GOOS=linux go build -o bin/loader ./cmd/load-json/main.go
+	GOOS=linux go build -o bin/service ./cmd/clothing-service/main.go
+
+deploy:
+	scp ./bin/loader adam@84.201.181.17:/home/adam/back/loader

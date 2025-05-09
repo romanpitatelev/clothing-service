@@ -14,7 +14,7 @@ import (
 
 const (
 	JWTPrivateKeyPath = "./private_key.pem"
-	JWTPublicKeyPath  = "./internal/config/public_key.pem"
+	JWTPublicKeyPath  = "./internal/configs/public_key.pem"
 )
 
 type Config struct {
@@ -52,7 +52,7 @@ func (e *Config) getHelpString() (string, error) {
 	return helpString, nil
 }
 
-func New() *Config {
+func New(withKeys bool) *Config {
 	cfg := &Config{}
 
 	helpString, err := cfg.getHelpString()
@@ -68,6 +68,10 @@ func New() *Config {
 
 	if err = cleanenv.ReadConfig(".env", cfg); err != nil && !os.IsNotExist(err) {
 		log.Panic().Err(err).Msg("failed to read config from .env")
+	}
+
+	if !withKeys {
+		return cfg
 	}
 
 	privateKeyData, err := loadKeyFile(JWTPrivateKeyPath)

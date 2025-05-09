@@ -1,4 +1,4 @@
-package filesrepo
+package objectsrepo
 
 import (
 	"bytes"
@@ -68,6 +68,30 @@ func (s *S3) UploadFile(data []byte, fileName, contentType string) error {
 		Key:         aws.String(fileName),
 		Body:        bytes.NewReader(data),
 		ContentType: &contentType,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file: %w", err)
+	}
+
+	return nil
+}
+
+func (s *S3) UploadReader(data io.ReadSeeker, fileName string) error {
+	buff := make([]byte, 512)
+	if _, err := data.Read(buff); err != nil {
+		return fmt.Errorf("failed to read file mime type: %w", err)
+	}
+
+	mimeType := http.DetectContentType(buff)
+	if _, err := data.Seek(0, 0); err != nil {
+		return fmt.Errorf("failed to seek file: %w", err)
+	}
+
+	_, err := s.client.PutObject(context.Background(), &s3.PutObjectInput{
+		Bucket:      &s.cfg.Bucket,
+		Key:         aws.String(fileName),
+		Body:        data,
+		ContentType: &mimeType,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload file: %w", err)

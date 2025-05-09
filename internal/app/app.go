@@ -12,8 +12,8 @@ import (
 	fileshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/files-handler"
 	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
-	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/clothes-repo"
-	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/files-repo"
+	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/objects-repo"
+	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/products-repo"
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
@@ -51,7 +51,7 @@ func Run(cfg *configs.Config) error { //nolint:funlen
 		Region:  cfg.S3Region,
 	})
 	if err != nil {
-		log.Panic().Err(err).Msg("failed to connect to files-repo")
+		log.Panic().Err(err).Msg("failed to connect to objects-repo")
 	}
 
 	smsClient := smsregistrationrepo.New(smsregistrationrepo.Config{

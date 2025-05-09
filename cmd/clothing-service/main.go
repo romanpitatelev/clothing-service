@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	cfg := configs.New()
+	cfg := configs.New(true)
 
 	if err := app.Run(cfg); err != nil {
 		panic(err)
