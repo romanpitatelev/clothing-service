@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 )

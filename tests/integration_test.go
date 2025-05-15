@@ -13,7 +13,12 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog/log"
+	migrate "github.com/rubenv/sql-migrate"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
+	brandshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/brands-handler"
 	clotheshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/clothes-handler"
 	fileshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/files-handler"
 	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
@@ -24,13 +29,11 @@ import (
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
-	clothesservice "github.com/romanpitatelev/clothing-service/internal/usecase/clothes-service"
+	brandsservice "github.com/romanpitatelev/clothing-service/internal/usecase/brands-service"
 	filesservice "github.com/romanpitatelev/clothing-service/internal/usecase/files-service"
+	clothesservice "github.com/romanpitatelev/clothing-service/internal/usecase/products-service"
 	"github.com/romanpitatelev/clothing-service/internal/usecase/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
-	"github.com/rs/zerolog/log"
-	migrate "github.com/rubenv/sql-migrate"
-	"github.com/stretchr/testify/suite"
 )
 
 const (
@@ -53,10 +56,12 @@ type IntegrationTestSuite struct {
 	usersService   *usersservice.Service
 	clothesService *clothesservice.Service
 	filesService   *filesservice.Service
+	brandsService  *brandsservice.Service
 	iamHandler     *iamhandler.Handler
 	usersHandler   *usershandler.Handler
 	clothesHandler *clotheshandler.Handler
 	filesHandler   *fileshandler.Handler
+	brandsHandler  *brandshandler.Handler
 	server         *rest.Server
 	smsChan        chan otpResp
 }
@@ -110,13 +115,22 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	}, s.usersRepo, s.smsRepo)
 	// s.clothesService = clothesservice.New(s.clothesRepo)
 	s.filesService = filesservice.New(s.filesRepo)
+	s.brandsService = brandsservice.New(s.clothesRepo)
 
 	s.usersHandler = usershandler.New(s.usersService)
 	s.iamHandler = iamhandler.New(s.tokenService)
 	s.clothesHandler = clotheshandler.New(s.clothesService)
 	s.filesHandler = fileshandler.New(s.filesService)
+	s.brandsHandler = brandshandler.New(s.brandsService)
 
-	s.server = rest.New(rest.Config{Port: port}, s.usersHandler, s.iamHandler, s.clothesHandler, s.filesHandler)
+	s.server = rest.New(
+		rest.Config{Port: port},
+		s.usersHandler,
+		s.iamHandler,
+		s.clothesHandler,
+		s.filesHandler,
+		s.brandsHandler,
+	)
 
 	log.Info().Msg("sms client is ready")
 

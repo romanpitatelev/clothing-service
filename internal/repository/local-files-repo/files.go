@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 )
@@ -18,7 +19,7 @@ func New(workdir string) *Files {
 	}
 }
 
-func (f *Files) ListDir(path string) ([]string, error) {
+func (f *Files) ListDir(path, ext string) ([]string, error) {
 	entries, err := os.ReadDir(f.workdir + "/" + path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading dir %s: %w", path, err)
@@ -27,7 +28,7 @@ func (f *Files) ListDir(path string) ([]string, error) {
 	result := make([]string, 0, len(entries))
 
 	for _, entry := range entries {
-		if entry.IsDir() {
+		if entry.IsDir() || ext != "" && !strings.HasSuffix(entry.Name(), ext) {
 			continue
 		}
 
@@ -38,7 +39,7 @@ func (f *Files) ListDir(path string) ([]string, error) {
 }
 
 func (f *Files) GetFile(path string) (io.ReadSeekCloser, error) {
-	file, err := os.Open(f.workdir + "/" + path)
+	file, err := os.Open(f.workdir + "/" + path) //nolint:gosec
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, entity.ErrFileNotFound

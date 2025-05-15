@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/romanpitatelev/clothing-service/internal/controller/rest/common"
 	"github.com/rs/zerolog/log"
+
+	"github.com/romanpitatelev/clothing-service/internal/controller/rest/common"
 )
 
 type filesService interface {

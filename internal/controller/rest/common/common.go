@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/romanpitatelev/clothing-service/internal/entity"
-	"github.com/rs/zerolog/log"
 )
 
 func ErrorResponse(w http.ResponseWriter, errorText string, err error) {
@@ -59,4 +61,25 @@ func getStatusCode(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func GetListRequest(r *http.Request) entity.ListRequest {
+	queryParams := r.URL.Query()
+
+	parameters := entity.ListRequest{
+		Sorting: queryParams.Get("sorting"),
+		Text:    queryParams.Get("text"),
+	}
+
+	parameters.Descending, _ = strconv.ParseBool(queryParams.Get("descending"))
+	parameters.Limit, _ = strconv.Atoi(queryParams.Get("limit"))
+	parameters.Offset, _ = strconv.Atoi(queryParams.Get("offset"))
+
+	return parameters
+}
+
+func UserSession(r *http.Request) entity.UserInfo {
+	val, _ := r.Context().Value(entity.UserInfo{}).(entity.UserInfo)
+
+	return val
 }

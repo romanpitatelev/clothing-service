@@ -41,7 +41,7 @@ type JSONVariant struct {
 	PhotoUrls           []string `json:"photoUrls"`
 }
 
-func (c JSONProduct) Products() (Product, []Variant) {
+func (c JSONProduct) Products() (Product, []Variant) { //nolint:funlen
 	product := Product{
 		ID:     ProductID(uuid.New()),
 		Colors: make([]Color, len(c.Variants)),
@@ -92,6 +92,8 @@ func (c JSONProduct) Products() (Product, []Variant) {
 				URL: &variant.RelatedClothingUrls[j],
 			}
 		}
+
+		variants[i].GrabDate = c.GrabDate
 	}
 
 	if len(variants) > 0 {

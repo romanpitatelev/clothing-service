@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 )
 
@@ -163,7 +164,7 @@ func (s *Service) generateTokens(user entity.User) (entity.Tokens, error) {
 func (s *Service) generateRefreshToken(user entity.User) (string, error) {
 	claims := jwt.MapClaims{
 		"userId": user.ID,
-		"exp":    time.Now().Add(1000 * refreshTokenDuration).Unix(),
+		"exp":    time.Now().Add(refreshTokenDuration).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)

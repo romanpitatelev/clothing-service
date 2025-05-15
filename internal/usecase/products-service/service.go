@@ -8,7 +8,7 @@ import (
 )
 
 type productsStore interface {
-	GetClothing(ctx context.Context, id entity.VariantID) (entity.Variant, error)
+	GetVariant(ctx context.Context, id entity.VariantID) (entity.Variant, error)
 }
 
 type Service struct {
@@ -22,7 +22,7 @@ func New(productsStore productsStore) *Service {
 }
 
 func (s *Service) GetVariant(ctx context.Context, id entity.VariantID) (entity.Variant, error) {
-	variant, err := s.productsStore.GetClothing(ctx, id)
+	variant, err := s.productsStore.GetVariant(ctx, id)
 	if err != nil {
 		return entity.Variant{}, fmt.Errorf("GetVariant %w", err)
 	}

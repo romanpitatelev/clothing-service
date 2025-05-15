@@ -5,14 +5,15 @@ import (
 	"flag"
 	"strings"
 
+	"github.com/rs/zerolog/log"
+	migrate "github.com/rubenv/sql-migrate"
+
 	"github.com/romanpitatelev/clothing-service/internal/configs"
 	localfilesrepo "github.com/romanpitatelev/clothing-service/internal/repository/local-files-repo"
 	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/objects-repo"
 	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/products-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	dataloader "github.com/romanpitatelev/clothing-service/internal/usecase/data-loader"
-	"github.com/rs/zerolog/log"
-	migrate "github.com/rubenv/sql-migrate"
 )
 
 var (
@@ -25,6 +26,8 @@ func init() {
 	flag.StringVar(&filesStr, "f", "", "comma-separated files to load. If none, all files are being processed")
 	flag.BoolVar(&skipPhotos, "s", false, "skip photos")
 }
+
+const poolSize = 10
 
 func main() {
 	flag.Parse()
@@ -65,7 +68,7 @@ func main() {
 
 	loader := dataloader.New(dataloader.Config{
 		SkipPhotos: skipPhotos,
-		PoolSize:   5,
+		PoolSize:   poolSize,
 		Dir:        dir,
 		Files:      files,
 	},

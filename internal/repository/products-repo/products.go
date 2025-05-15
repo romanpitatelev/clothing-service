@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 )
@@ -86,12 +88,12 @@ const (
 
 const upsertVariantQuery = `
 INSERT INTO variants (id, product_id, color, color_hex, sizes, sold_out_sizes,
-                     product_url, primary_photo, photo_1, photo_2, photo_3, photo_4, photo_5, photo_6, photo_7, photo_8, 
+                     product_url, primary_photo, grab_date, photo_1, photo_2, photo_3, photo_4, photo_5, photo_6, photo_7, photo_8, 
                      photo_9, photo_10, related_product_url_1, related_product_url_2, related_product_url_3,
                      related_product_url_4, related_product_url_5, related_product_photo_1, related_product_photo_2, 
                      related_product_photo_3, related_product_photo_4, related_product_photo_5)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 
-        $24, $25, $26, $27, $28)
+        $24, $25, $26, $27, $28, $29)
 ON CONFLICT (product_url) WHERE deleted_at IS NULL DO UPDATE
 SET product_id = excluded.product_id,
     color = excluded.color,
@@ -99,6 +101,7 @@ SET product_id = excluded.product_id,
     sizes = excluded.sizes,
     product_url = excluded.product_url,
     primary_photo = excluded.primary_photo,
+    grab_date = excluded.grab_date,
     photo_1 = excluded.photo_1,
     photo_2 = excluded.photo_2,
     photo_3 = excluded.photo_3,
@@ -127,7 +130,7 @@ func (r *Repo) UpsertVariant(ctx context.Context, variant entity.Variant) error 
 	args := make([]any, 0, variantStructSize)
 
 	args = append(args, variant.ID, variant.ProductID, variant.Color, variant.ColorHex, variant.Sizes,
-		variant.SoldOutSizes, variant.ProductURL, variant.PrimaryPhoto)
+		variant.SoldOutSizes, variant.ProductURL, variant.PrimaryPhoto, variant.GrabDate)
 
 	for i := range photosMaxLen {
 		if i < len(variant.Photos) {
@@ -250,6 +253,75 @@ func (r *Repo) ListBrands(ctx context.Context, req entity.ListRequest) ([]entity
 	}
 
 	return result, nil
+}
+
+const listPreferredBrandsQuery = `
+SELECT id, name, logo, url, created_at, updated_at
+FROM brands
+JOIN users_brands ON brands.id = users_brands.brand_id
+WHERE deleted_at IS NULL
+  AND user_id = $1
+`
+
+func (r *Repo) ListPreferredBrands(ctx context.Context, userID entity.UserID) ([]entity.Brand, error) {
+	var brands []entity.Brand
+
+	if err := pgxscan.Select(ctx, r.db.GetTXFromContext(ctx), &brands, listPreferredBrandsQuery, userID); err != nil {
+		return nil, fmt.Errorf("error listing preferred brands: %w", err)
+	}
+
+	return brands, nil
+}
+
+const insertPreferredBrandsQuery = `
+WITH delete_existing AS (
+	DELETE FROM users_brands WHERE user_id = $1
+)
+INSERT INTO users_brands (user_id, brand_id)
+VALUES 
+`
+
+//nolint:mnd
+func (r *Repo) SetPreferredBrands(ctx context.Context, userID entity.UserID, brandIDs []entity.BrandID) error {
+	db := r.db.GetTXFromContext(ctx)
+
+	args := make([]any, 0, len(brandIDs)*2)
+
+	query := strings.Builder{}
+	query.WriteString(insertPreferredBrandsQuery)
+
+	values := make([]string, 0, len(brandIDs))
+
+	for i, brandID := range brandIDs {
+		args = append(args, userID, brandID)
+		values = append(values, fmt.Sprintf(`($%d, $%d)`, 2*i+1, 2*i+2))
+	}
+
+	query.WriteString(strings.Join(values, ","))
+
+	if _, err := db.Exec(ctx, query.String(), args...); err != nil {
+		return fmt.Errorf("error setting preferred brands: %w", err)
+	}
+
+	return nil
+}
+
+const insertRequestedBrandQuery = `
+INSERT INTO requested_brands (user_id, brand, comment)
+VALUES ($1, $2, $3)
+`
+
+func (r *Repo) InsertRequestedBrand(ctx context.Context, req entity.RequestedBrand) error {
+	if _, err := r.db.GetTXFromContext(ctx).Exec(ctx, insertRequestedBrandQuery, req.UserID, req.Brand, req.Comment); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.ForeignKeyViolation {
+			return entity.ErrUserNotFound
+		}
+
+		return fmt.Errorf("error inserting brand: %w", err)
+	}
+
+	return nil
 }
 
 const setRelatedProductPhotoTmpl = `

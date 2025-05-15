@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest/common"
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 )

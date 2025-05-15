@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
+
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 	"github.com/romanpitatelev/clothing-service/internal/utils"
-	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
@@ -21,7 +22,7 @@ type Config struct {
 }
 
 type files interface {
-	ListDir(path string) ([]string, error)
+	ListDir(path, ext string) ([]string, error)
 	GetFile(path string) (io.ReadSeekCloser, error)
 }
 
@@ -63,11 +64,13 @@ func (s *Service) Run(ctx context.Context) error {
 	var err error
 
 	if len(s.cfg.Files) == 0 {
-		s.cfg.Files, err = s.files.ListDir(s.cfg.Dir)
+		s.cfg.Files, err = s.files.ListDir(s.cfg.Dir, ".json")
 		if err != nil {
-			return err
+			return fmt.Errorf("error listing files: %w", err)
 		}
 	}
+
+	log.Info().Str("files", strings.Join(s.cfg.Files, ",")).Send()
 
 	for _, file := range s.cfg.Files {
 		log.Info().Str("file", file).Msg("loading file")
@@ -158,7 +161,7 @@ func (s *Service) saveItem(
 
 	product, err := s.productsStore.UpsertProduct(ctx, product)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to upsert product")
+		return fmt.Errorf("failed to upsert product: %w", err)
 	}
 
 	for _, variant := range variants {

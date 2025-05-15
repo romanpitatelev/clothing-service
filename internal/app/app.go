@@ -6,23 +6,26 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/rs/zerolog/log"
+	migrate "github.com/rubenv/sql-migrate"
+
 	"github.com/romanpitatelev/clothing-service/internal/configs"
 	"github.com/romanpitatelev/clothing-service/internal/controller/rest"
+	brandshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/brands-handler"
 	clotheshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/clothes-handler"
 	fileshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/files-handler"
 	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
 	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 	filesrepo "github.com/romanpitatelev/clothing-service/internal/repository/objects-repo"
-	clothesrepo "github.com/romanpitatelev/clothing-service/internal/repository/products-repo"
+	productsrepo "github.com/romanpitatelev/clothing-service/internal/repository/products-repo"
 	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/romanpitatelev/clothing-service/internal/repository/store"
 	usersrepo "github.com/romanpitatelev/clothing-service/internal/repository/users-repo"
-	clothesservice "github.com/romanpitatelev/clothing-service/internal/usecase/clothes-service"
+	brandsservice "github.com/romanpitatelev/clothing-service/internal/usecase/brands-service"
 	filesservice "github.com/romanpitatelev/clothing-service/internal/usecase/files-service"
+	productsservice "github.com/romanpitatelev/clothing-service/internal/usecase/products-service"
 	"github.com/romanpitatelev/clothing-service/internal/usecase/token-service"
 	usersservice "github.com/romanpitatelev/clothing-service/internal/usecase/users-service"
-	"github.com/rs/zerolog/log"
-	migrate "github.com/rubenv/sql-migrate"
 )
 
 func Run(cfg *configs.Config) error { //nolint:funlen
@@ -41,7 +44,7 @@ func Run(cfg *configs.Config) error { //nolint:funlen
 	log.Info().Msg("successful migration")
 
 	usersRepo := usersrepo.New(db)
-	clothesRepo := clothesrepo.New(db)
+	productsRepo := productsrepo.New(db)
 
 	filesRepo, err := filesrepo.New(filesrepo.S3Config{
 		Address: cfg.S3Address,
@@ -71,13 +74,15 @@ func Run(cfg *configs.Config) error { //nolint:funlen
 	usersService := usersservice.New(usersservice.Config{
 		OTPMaxValue: cfg.OTPMaxValue,
 	}, usersRepo, smsClient)
-	clothesService := clothesservice.New(clothesRepo)
+	productsService := productsservice.New(productsRepo)
 	filesService := filesservice.New(filesRepo)
+	brandsService := brandsservice.New(productsRepo)
 
 	usersHandler := usershandler.New(usersService)
 	iamHandler := iamhandler.New(tokenService)
-	clothesHandler := clotheshandler.New(clothesService)
+	clothesHandler := clotheshandler.New(productsService)
 	filesHandler := fileshandler.New(filesService)
+	brandsHandler := brandshandler.New(brandsService)
 
 	server := rest.New(
 		rest.Config{Port: cfg.AppPort},
@@ -85,6 +90,7 @@ func Run(cfg *configs.Config) error { //nolint:funlen
 		iamHandler,
 		clothesHandler,
 		filesHandler,
+		brandsHandler,
 	)
 
 	if err := server.Run(ctx); err != nil {

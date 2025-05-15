@@ -11,6 +11,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
+
+	brnadshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/brands-handler"
+	clotheshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/clothes-handler"
+	fileshandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/files-handler"
+	iamhandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/iam-handler"
+	usershandler "github.com/romanpitatelev/clothing-service/internal/controller/rest/users-handler"
 )
 
 const (
@@ -22,43 +28,23 @@ type Config struct {
 	Port int
 }
 
-type usersHandler interface {
-	CreateUser(w http.ResponseWriter, r *http.Request)
-	LoginUser(w http.ResponseWriter, r *http.Request)
-	GetUser(w http.ResponseWriter, r *http.Request)
-	UpdateUser(w http.ResponseWriter, r *http.Request)
-	DeleteUser(w http.ResponseWriter, r *http.Request)
-}
-
-type tokenHandler interface {
-	ValidateUser(w http.ResponseWriter, r *http.Request)
-	RefreshToken(w http.ResponseWriter, r *http.Request)
-	JWTAuth(next http.Handler) http.Handler
-}
-
-type clothesHandler interface {
-	GetClothing(w http.ResponseWriter, r *http.Request)
-}
-
-type imagesHandler interface {
-	GetImage(w http.ResponseWriter, r *http.Request)
-}
-
 type Server struct {
 	cfg            Config
 	server         *http.Server
-	usersHandler   usersHandler
-	tokenHandler   tokenHandler
-	clothesHandler clothesHandler
-	imagesHandler  imagesHandler
+	usersHandler   *usershandler.Handler
+	tokenHandler   *iamhandler.Handler
+	clothesHandler *clotheshandler.Handler
+	imagesHandler  *fileshandler.Handler
+	brandsHandler  *brnadshandler.Handler
 }
 
 func New(
 	cfg Config,
-	userHandler usersHandler,
-	tokenHandler tokenHandler,
-	clothesHandler clothesHandler,
-	imagesHandler imagesHandler,
+	usersHandler *usershandler.Handler,
+	tokenHandler *iamhandler.Handler,
+	clothesHandler *clotheshandler.Handler,
+	imagesHandler *fileshandler.Handler,
+	brandsHandler *brnadshandler.Handler,
 ) *Server { //nolint:whitespace
 	router := chi.NewRouter()
 	s := &Server{
@@ -68,17 +54,17 @@ func New(
 			ReadHeaderTimeout: readHeaderTimeoutValue,
 		},
 		cfg:            cfg,
-		usersHandler:   userHandler,
+		usersHandler:   usersHandler,
 		tokenHandler:   tokenHandler,
 		clothesHandler: clothesHandler,
 		imagesHandler:  imagesHandler,
+		brandsHandler:  brandsHandler,
 	}
 
+	router.Use(middleware.Recoverer)
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 	router.Route("/api", func(r chi.Router) {
 		r.Route("/v1", func(r chi.Router) {
-			r.Use(middleware.Recoverer)
-
 			r.Post("/users/register", s.usersHandler.CreateUser)
 			r.Post("/users/{userId}/login", s.usersHandler.LoginUser)
 			r.Post("/users/{userId}/otp", s.tokenHandler.ValidateUser)
@@ -93,6 +79,11 @@ func New(
 				r.Get("/clothes/{clothingId}", s.clothesHandler.GetClothing)
 
 				r.Get("/images/{imageName}", s.imagesHandler.GetImage)
+
+				r.Get("/brands", s.brandsHandler.ListBrands)
+				r.Get("/users/{userId}/brands", s.brandsHandler.ListPreferredBrands)
+				r.Post("/user/{userId}/brands", s.brandsHandler.SetPreferredBrands)
+				r.Put("/user/{userId}/brands", s.brandsHandler.RequestBrand)
 			})
 		})
 	})

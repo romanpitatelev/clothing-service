@@ -10,3 +10,9 @@ type Brand struct {
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }
+
+type RequestedBrand struct {
+	Brand   string `json:"brand" db:"brand"`
+	Comment string `json:"comment" db:"comment"`
+	UserID  UserID `json:"userId" db:"user_id"`
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	transport "github.com/aws/smithy-go/endpoints"
+
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 )
 
@@ -77,12 +78,13 @@ func (s *S3) UploadFile(data []byte, fileName, contentType string) error {
 }
 
 func (s *S3) UploadReader(data io.ReadSeeker, fileName string) error {
-	buff := make([]byte, 512)
+	buff := make([]byte, 512) //nolint:mnd
 	if _, err := data.Read(buff); err != nil {
 		return fmt.Errorf("failed to read file mime type: %w", err)
 	}
 
 	mimeType := http.DetectContentType(buff)
+
 	if _, err := data.Seek(0, 0); err != nil {
 		return fmt.Errorf("failed to seek file: %w", err)
 	}

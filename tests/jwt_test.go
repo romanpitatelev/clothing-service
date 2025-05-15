@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
 	"github.com/romanpitatelev/clothing-service/internal/entity"
 	"github.com/romanpitatelev/clothing-service/internal/utils"
 )

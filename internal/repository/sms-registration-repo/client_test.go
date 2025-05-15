@@ -3,8 +3,9 @@ package smsregistrationrepo_test
 import (
 	"testing"
 
-	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 	"github.com/stretchr/testify/require"
+
+	smsregistrationrepo "github.com/romanpitatelev/clothing-service/internal/repository/sms-registration-repo"
 )
 
 func TestSMSService_SendOTP(t *testing.T) {

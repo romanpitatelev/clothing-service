@@ -18,7 +18,7 @@ tools:
 
 lint: tidy
 	gofumpt -w .
-	gci write . --skip-generated -s standard -s default
+	gci write . --skip-generated -s standard -s default -s "prefix(github.com/romanpitatelev/clothing-service)"
 	golangci-lint run ./...
 
 test: up

@@ -1,3 +1,4 @@
+//nolint:wrapcheck,recvcheck
 package entity
 
 import (
@@ -75,6 +76,7 @@ type Variant struct {
 	Photos                  []string         `json:"photos" db:"photos"`
 	PhotoOriginalURL        []string         `json:"-" db:"-"`
 	RelatedProducts         []RelatedProduct `json:"relatedProducts" db:"related_products"`
+	GrabDate                time.Time        `json:"grabDate" db:"grab_date"`
 	CreatedAt               time.Time        `json:"createdAt" db:"created_at"`
 	UpdatedAt               time.Time        `json:"updatedAt" db:"updated_at"`
 }

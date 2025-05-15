@@ -12,6 +12,7 @@ linters:
     - testpackage
     - tparallel
     - varnamelen
+    - whitespace
   settings:
     gocyclo:
       min-complexity: 24

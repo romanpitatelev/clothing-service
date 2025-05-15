@@ -41,6 +41,13 @@ CREATE UNIQUE INDEX brands_unique_name_and_deleted_at_null_idx
     ON brands (name)
     WHERE deleted_at IS NULL;
 
+CREATE TABLE users_brands
+(
+    user_id  UUID REFERENCES users (id)  NOT NULL,
+    brand_id UUID REFERENCES brands (id) NOT NULL,
+    PRIMARY KEY (user_id, brand_id)
+);
+
 CREATE TABLE products
 (
     id         UUID PRIMARY KEY,
@@ -58,6 +65,14 @@ CREATE TABLE products
 CREATE UNIQUE INDEX products_unique_brand_category_name_and_deleted_at_null_idx
     ON products (brand_id, category, name)
     WHERE deleted_at IS NULL;
+
+CREATE TABLE requested_brands
+(
+    user_id    UUID REFERENCES users (id),
+    brand      VARCHAR                  NOT NULL,
+    comment    VARCHAR                  NOT NULL DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE variants
 (
@@ -89,6 +104,7 @@ CREATE TABLE variants
     related_product_photo_3 VARCHAR,
     related_product_photo_4 VARCHAR,
     related_product_photo_5 VARCHAR,
+    grab_date               TIMESTAMP WITH TIME ZONE      NOT NULL,
     created_at              TIMESTAMP WITH TIME ZONE      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              TIMESTAMP WITH TIME ZONE      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at              TIMESTAMP WITH TIME ZONE
@@ -104,7 +120,9 @@ DROP INDEX users_unique_email_and_deleted_at_null_idx;
 DROP INDEX brands_unique_name_and_deleted_at_null_idx;
 DROP INDEX products_unique_brand_category_name_and_deleted_at_null_idx;
 DROP INDEX variants_unique_url_and_deleted_at_null_idx;
+DROP TABLE variants;
+DROP TABLE products;
+DROP TABLE requested_brands;
+DROP TABLE users_brands;
 DROP TABLE users;
 DROP TABLE brands;
-DROP TABLE products;
-DROP TABLE variants;

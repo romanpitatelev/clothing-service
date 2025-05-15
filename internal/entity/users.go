@@ -1,3 +1,4 @@
+//nolint:wrapcheck,recvcheck
 package entity
 
 import (

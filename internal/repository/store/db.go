@@ -10,9 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/romanpitatelev/clothing-service/internal/entity"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
+
+	"github.com/romanpitatelev/clothing-service/internal/entity"
 )
 
 //go:embed migrations
